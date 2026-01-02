@@ -9,6 +9,24 @@
     padding: var(--spacing-xl);
 }
 
+.loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 50vh;
+    font-size: 1rem;
+    color: var(--text-muted);
+}
+
+.emptyState {
+    text-align: center;
+    padding: var(--spacing-2xl);
+    color: var(--text-muted);
+    background: var(--cream-light);
+    border-radius: var(--radius-lg);
+    border: 2px dashed var(--border-default);
+}
+
 .setupContainer {
     display: flex;
     flex-direction: column;

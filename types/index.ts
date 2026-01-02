@@ -1,23 +1,33 @@
-// Product Types
-export interface ProductType {
+// Template Set = Product Type
+// A template set is a collection of templates that represents a product type
+// Users create their own template sets (e.g., "Lifeguard Straw Hat" with 5 templates)
+export interface TemplateSet {
     id: string;
     name: string;
     icon: string;
+    templates: ImageTemplate[];
     sortOrder: number;
     createdAt: Date;
+    updatedAt: Date;
 }
 
-// Image Template Types  
-export interface ImageType {
+// Alias for backward compatibility
+export type ProductType = TemplateSet;
+
+// Image Template (individual template within a set)
+export interface ImageTemplate {
     id: string;
-    productTypeId: string;
     name: string;
     templateImageUrl: string;
+    templateImageBase64?: string; // For local storage
     basePrompt: string;
     sortOrder: number;
     createdAt: Date;
     updatedAt: Date;
 }
+
+// Legacy alias
+export type ImageType = ImageTemplate;
 
 // Generation Session
 export interface GenerationSession {

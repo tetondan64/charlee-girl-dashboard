@@ -1,66 +1,92 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import styles from './page.module.css';
 import Header from '@/components/layout/Header';
-import ProductTypeSelector from '@/components/product-on-white/ProductTypeSelector';
+import TemplateSetSelector from '@/components/product-on-white/TemplateSetSelector';
 import PatternUpload from '@/components/product-on-white/PatternUpload';
 import TemplateGrid from '@/components/product-on-white/TemplateGrid';
 import OutputSettings from '@/components/product-on-white/OutputSettings';
 import GenerationResults from '@/components/product-on-white/GenerationResults';
-import { ImageType, OutputSettings as OutputSettingsType, GeneratedImage } from '@/types';
+import { TemplateSet, ImageTemplate, OutputSettings as OutputSettingsType, GeneratedImage } from '@/types';
 
-// Default hat templates - will be replaced with actual templates
-const defaultHatTemplates: ImageType[] = [
-    {
-        id: 'hat-front',
-        productTypeId: 'lifeguard-hat',
-        name: 'Front View',
-        templateImageUrl: '/templates/hat-front.jpg',
-        basePrompt: 'This is a product photo of a lifeguard-style straw hat on a white background. Apply the pattern from the reference image to the under-brim fabric of the hat, keeping all other elements identical including the straw weave texture, Charlee leather patch, and drawstring.',
-        sortOrder: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-    },
-    {
-        id: 'hat-side',
-        productTypeId: 'lifeguard-hat',
-        name: 'Side View',
-        templateImageUrl: '/templates/hat-side.jpg',
-        basePrompt: 'This is a side view product photo of a lifeguard-style straw hat on a white background. Apply the pattern from the reference image to the visible under-brim fabric of the hat, keeping all other elements identical.',
-        sortOrder: 1,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-    },
-    {
-        id: 'hat-back',
-        productTypeId: 'lifeguard-hat',
-        name: 'Back View',
-        templateImageUrl: '/templates/hat-back.jpg',
-        basePrompt: 'This is a back view product photo of a lifeguard-style straw hat on a white background. Apply the pattern from the reference image to the under-brim fabric of the hat, keeping all other elements identical.',
-        sortOrder: 2,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-    },
-    {
-        id: 'hat-detail',
-        productTypeId: 'lifeguard-hat',
-        name: 'Under Brim Detail',
-        templateImageUrl: '/templates/hat-detail.jpg',
-        basePrompt: 'This is a detail shot showing the under-brim of a lifeguard-style straw hat. Apply the pattern from the reference image to the under-brim fabric, filling the visible fabric area with the pattern.',
-        sortOrder: 3,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-    },
-];
+// Storage key for template sets
+const STORAGE_KEY = 'charlee-girl-template-sets';
+
+// Default starter template set
+const createDefaultTemplateSet = (): TemplateSet => ({
+    id: 'lifeguard-hat',
+    name: 'Lifeguard Straw Hat',
+    icon: '🎩',
+    templates: [
+        {
+            id: 'hat-front',
+            name: 'Front View',
+            templateImageUrl: '',
+            basePrompt: 'This is a product photo of a lifeguard-style straw hat on a white background. Apply the pattern from the reference image to the under-brim fabric of the hat, keeping all other elements identical including the straw weave texture, leather patch, and drawstring.',
+            sortOrder: 0,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        },
+        {
+            id: 'hat-side',
+            name: 'Side View',
+            templateImageUrl: '',
+            basePrompt: 'This is a side view product photo of a lifeguard-style straw hat on a white background. Apply the pattern from the reference image to the visible under-brim fabric of the hat, keeping all other elements identical.',
+            sortOrder: 1,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        },
+    ],
+    sortOrder: 0,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+});
+
+// Load template sets from localStorage
+const loadTemplateSets = (): TemplateSet[] => {
+    if (typeof window === 'undefined') return [createDefaultTemplateSet()];
+
+    try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+            const parsed = JSON.parse(stored);
+            // Convert date strings back to Date objects
+            return parsed.map((set: TemplateSet) => ({
+                ...set,
+                createdAt: new Date(set.createdAt),
+                updatedAt: new Date(set.updatedAt),
+                templates: set.templates.map((t: ImageTemplate) => ({
+                    ...t,
+                    createdAt: new Date(t.createdAt),
+                    updatedAt: new Date(t.updatedAt),
+                })),
+            }));
+        }
+    } catch (e) {
+        console.error('Failed to load template sets:', e);
+    }
+
+    return [createDefaultTemplateSet()];
+};
+
+// Save template sets to localStorage
+const saveTemplateSets = (sets: TemplateSet[]) => {
+    if (typeof window === 'undefined') return;
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(sets));
+    } catch (e) {
+        console.error('Failed to save template sets:', e);
+    }
+};
 
 type WorkflowStep = 'setup' | 'generating' | 'results';
 
 export default function ProductOnWhitePage() {
-    const [productType, setProductType] = useState('lifeguard-hat');
+    const [templateSets, setTemplateSets] = useState<TemplateSet[]>([]);
+    const [selectedSetId, setSelectedSetId] = useState<string>('');
     const [patternImage, setPatternImage] = useState<File | null>(null);
     const [patternName, setPatternName] = useState('');
-    const [templates, setTemplates] = useState<ImageType[]>(defaultHatTemplates);
     const [promptModifications, setPromptModifications] = useState<Record<string, string>>({});
     const [outputSettings, setOutputSettings] = useState<OutputSettingsType>({
         aspectRatio: '1:1',
@@ -69,10 +95,68 @@ export default function ProductOnWhitePage() {
     const [workflowStep, setWorkflowStep] = useState<WorkflowStep>('setup');
     const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [isLoaded, setIsLoaded] = useState(false);
+
+    // Load on mount
+    useEffect(() => {
+        const sets = loadTemplateSets();
+        setTemplateSets(sets);
+        if (sets.length > 0) {
+            setSelectedSetId(sets[0].id);
+        }
+        setIsLoaded(true);
+    }, []);
+
+    // Save when template sets change
+    useEffect(() => {
+        if (isLoaded && templateSets.length > 0) {
+            saveTemplateSets(templateSets);
+        }
+    }, [templateSets, isLoaded]);
+
+    const selectedSet = templateSets.find(s => s.id === selectedSetId);
+    const templates = selectedSet?.templates || [];
+
+    // Template set management
+    const handleCreateSet = useCallback((name: string, icon: string) => {
+        const newSet: TemplateSet = {
+            id: `set-${Date.now()}`,
+            name,
+            icon,
+            templates: [],
+            sortOrder: templateSets.length,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        };
+        setTemplateSets(prev => [...prev, newSet]);
+        setSelectedSetId(newSet.id);
+    }, [templateSets.length]);
+
+    const handleDeleteSet = useCallback((setId: string) => {
+        setTemplateSets(prev => prev.filter(s => s.id !== setId));
+        if (selectedSetId === setId) {
+            const remaining = templateSets.filter(s => s.id !== setId);
+            setSelectedSetId(remaining[0]?.id || '');
+        }
+    }, [selectedSetId, templateSets]);
+
+    const handleRenameSet = useCallback((setId: string, newName: string) => {
+        setTemplateSets(prev => prev.map(s =>
+            s.id === setId ? { ...s, name: newName, updatedAt: new Date() } : s
+        ));
+    }, []);
+
+    // Template management within the current set
+    const handleTemplatesChange = useCallback((newTemplates: ImageTemplate[]) => {
+        setTemplateSets(prev => prev.map(s =>
+            s.id === selectedSetId
+                ? { ...s, templates: newTemplates, updatedAt: new Date() }
+                : s
+        ));
+    }, [selectedSetId]);
 
     const handlePatternUpload = useCallback((file: File) => {
         setPatternImage(file);
-        // Extract name from filename
         const name = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
         setPatternName(name);
     }, []);
@@ -85,12 +169,11 @@ export default function ProductOnWhitePage() {
     }, []);
 
     const handleGenerate = async () => {
-        if (!patternImage) return;
+        if (!patternImage || !selectedSet) return;
 
         setIsGenerating(true);
         setWorkflowStep('generating');
 
-        // Create initial generated images in pending state
         const initialImages: GeneratedImage[] = templates.map(template => ({
             id: `gen-${template.id}-${Date.now()}`,
             sessionId: `session-${Date.now()}`,
@@ -106,14 +189,13 @@ export default function ProductOnWhitePage() {
 
         setGeneratedImages(initialImages);
 
-        // Simulate generation (in real app, this would call the Gemini API)
-        // For now, we'll just show the UI flow
+        // Simulate generation (replace with actual API call)
         setTimeout(() => {
             setGeneratedImages(prev =>
                 prev.map(img => ({
                     ...img,
                     status: 'completed' as const,
-                    generatedImageUrl: img.templateImageUrl, // In real app, this would be the generated image
+                    generatedImageUrl: img.templateImageUrl,
                     apiCost: 0.05,
                 }))
             );
@@ -131,7 +213,6 @@ export default function ProductOnWhitePage() {
             )
         );
 
-        // Simulate regeneration
         setTimeout(() => {
             setGeneratedImages(prev =>
                 prev.map(img =>
@@ -163,6 +244,17 @@ export default function ProductOnWhitePage() {
 
     const canGenerate = patternImage && patternName.trim() && templates.length > 0;
 
+    if (!isLoaded) {
+        return (
+            <div className={styles.page}>
+                <Header showBackButton backHref="/" title="Product on White Generator" />
+                <main className={styles.main}>
+                    <div className={styles.loading}>Loading...</div>
+                </main>
+            </div>
+        );
+    }
+
     return (
         <div className={styles.page}>
             <Header
@@ -174,23 +266,27 @@ export default function ProductOnWhitePage() {
             <main className={styles.main}>
                 {workflowStep === 'setup' && (
                     <div className={styles.setupContainer}>
-                        {/* Step 1: Product Type & Pattern */}
+                        {/* Step 1: Template Set & Pattern */}
                         <section className={styles.section}>
                             <div className={styles.sectionHeader}>
                                 <span className={styles.stepNumber}>1</span>
                                 <div>
-                                    <h2 className={styles.sectionTitle}>Select Product & Upload Pattern</h2>
+                                    <h2 className={styles.sectionTitle}>Select Product Type & Upload Pattern</h2>
                                     <p className={styles.sectionDescription}>
-                                        Choose your product type and upload the pattern image
+                                        Choose a template set (product type) and upload your pattern
                                     </p>
                                 </div>
                             </div>
 
                             <div className={styles.row}>
                                 <div className={styles.column}>
-                                    <ProductTypeSelector
-                                        value={productType}
-                                        onChange={setProductType}
+                                    <TemplateSetSelector
+                                        templateSets={templateSets}
+                                        selectedSetId={selectedSetId}
+                                        onSelectSet={setSelectedSetId}
+                                        onCreateSet={handleCreateSet}
+                                        onDeleteSet={handleDeleteSet}
+                                        onRenameSet={handleRenameSet}
                                     />
                                 </div>
                                 <div className={styles.column}>
@@ -209,19 +305,25 @@ export default function ProductOnWhitePage() {
                             <div className={styles.sectionHeader}>
                                 <span className={styles.stepNumber}>2</span>
                                 <div>
-                                    <h2 className={styles.sectionTitle}>Review Templates & Customize Prompts</h2>
+                                    <h2 className={styles.sectionTitle}>Manage Templates & Customize Prompts</h2>
                                     <p className={styles.sectionDescription}>
-                                        Select templates and add any custom instructions
+                                        Add templates to &quot;{selectedSet?.name || 'your product type'}&quot; and customize prompts
                                     </p>
                                 </div>
                             </div>
 
-                            <TemplateGrid
-                                templates={templates}
-                                promptModifications={promptModifications}
-                                onPromptModification={handlePromptModification}
-                                onTemplatesChange={setTemplates}
-                            />
+                            {selectedSet ? (
+                                <TemplateGrid
+                                    templates={templates}
+                                    promptModifications={promptModifications}
+                                    onPromptModification={handlePromptModification}
+                                    onTemplatesChange={handleTemplatesChange}
+                                />
+                            ) : (
+                                <div className={styles.emptyState}>
+                                    <p>Create a template set above to get started</p>
+                                </div>
+                            )}
                         </section>
 
                         {/* Step 3: Output Settings */}
@@ -265,8 +367,9 @@ export default function ProductOnWhitePage() {
                             </button>
                             {!canGenerate && (
                                 <p className={styles.generateHint}>
-                                    {!patternImage && 'Upload a pattern image to continue'}
-                                    {patternImage && !patternName.trim() && 'Enter a pattern name'}
+                                    {templates.length === 0 && 'Add templates to your product type first'}
+                                    {templates.length > 0 && !patternImage && 'Upload a pattern image to continue'}
+                                    {templates.length > 0 && patternImage && !patternName.trim() && 'Enter a pattern name'}
                                 </p>
                             )}
                         </div>

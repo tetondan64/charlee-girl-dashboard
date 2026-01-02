@@ -72,6 +72,33 @@
     border-radius: var(--radius-full);
 }
 
+.deleteTemplateButton {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    background: rgba(158, 91, 58, 0.9);
+    border: none;
+    border-radius: var(--radius-full);
+    color: white;
+    cursor: pointer;
+    opacity: 0;
+    transition: all 0.2s ease;
+}
+
+.thumbnail:hover .deleteTemplateButton {
+    opacity: 1;
+}
+
+.deleteTemplateButton:hover {
+    background: var(--brown-rust);
+    transform: scale(1.1);
+}
+
 .addButton {
     display: flex;
     flex-direction: column;

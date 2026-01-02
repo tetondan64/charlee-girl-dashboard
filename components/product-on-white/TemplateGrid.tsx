@@ -61,6 +61,17 @@ export default function TemplateGrid({
         setEditedBasePrompt('');
     };
 
+    const handleDeleteTemplate = (templateId: string, e: React.MouseEvent) => {
+        e.stopPropagation(); // Prevent selecting the template
+        if (confirm('Delete this template?')) {
+            const updatedTemplates = templates.filter(t => t.id !== templateId);
+            onTemplatesChange(updatedTemplates);
+            if (selectedTemplate === templateId) {
+                setSelectedTemplate(updatedTemplates[0]?.id || null);
+            }
+        }
+    };
+
     return (
         <div className={styles.container}>
             {/* Template Thumbnails */}
@@ -86,6 +97,16 @@ export default function TemplateGrid({
                         {promptModifications[template.id] && (
                             <span className={styles.modifiedBadge}>Modified</span>
                         )}
+                        <button
+                            className={styles.deleteTemplateButton}
+                            onClick={(e) => handleDeleteTemplate(template.id, e)}
+                            title="Delete template"
+                        >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M18 6 6 18" />
+                                <path d="m6 6 12 12" />
+                            </svg>
+                        </button>
                     </button>
                 ))}
 
@@ -224,9 +245,8 @@ export default function TemplateGrid({
                                 e.preventDefault();
                                 const formData = new FormData(e.currentTarget);
                                 handleAddTemplate({
-                                    productTypeId: 'lifeguard-hat',
                                     name: formData.get('name') as string,
-                                    templateImageUrl: '/templates/custom.jpg',
+                                    templateImageUrl: '',
                                     basePrompt: formData.get('prompt') as string,
                                     sortOrder: templates.length,
                                 });
