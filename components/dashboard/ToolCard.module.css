@@ -1,0 +1,131 @@
+.card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-xl);
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-xl);
+    text-decoration: none;
+    color: inherit;
+    position: relative;
+    transition: all 0.25s ease;
+    min-height: 180px;
+}
+
+.card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--border-default);
+}
+
+.card:hover .iconWrapper {
+    transform: scale(1.1);
+    background: var(--brown-primary);
+}
+
+.card:hover .icon {
+    filter: brightness(1.2);
+}
+
+.disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.disabled:hover {
+    transform: none;
+    box-shadow: var(--shadow-sm);
+}
+
+.iconWrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    background: var(--cream-warm);
+    border-radius: var(--radius-lg);
+    transition: all 0.25s ease;
+}
+
+.icon {
+    font-size: 2rem;
+    transition: all 0.25s ease;
+}
+
+.content {
+    text-align: center;
+}
+
+.name {
+    font-family: var(--font-display);
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-xs);
+}
+
+.description {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+.comingSoon {
+    position: absolute;
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
+    padding: 0.125rem 0.5rem;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: var(--rose-dust);
+    color: white;
+    border-radius: var(--radius-full);
+}
+
+.editButton {
+    position: absolute;
+    bottom: var(--spacing-sm);
+    right: var(--spacing-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-md);
+    color: var(--text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: all 0.2s ease;
+}
+
+.card:hover .editButton {
+    opacity: 1;
+}
+
+.editButton:hover {
+    background: var(--cream-warm);
+    color: var(--text-primary);
+}
+
+@media (max-width: 768px) {
+    .card {
+        padding: var(--spacing-lg);
+        min-height: 150px;
+    }
+
+    .iconWrapper {
+        width: 52px;
+        height: 52px;
+    }
+
+    .icon {
+        font-size: 1.5rem;
+    }
+}

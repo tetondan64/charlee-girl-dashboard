@@ -1,0 +1,57 @@
+.usageBar {
+    background: var(--cream-mid);
+    border-top: 1px solid var(--border-light);
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: var(--spacing-sm) var(--spacing-xl);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-xl);
+}
+
+.stat {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.stat svg {
+    color: var(--brown-primary);
+}
+
+.label {
+    color: var(--text-muted);
+}
+
+.value {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.divider {
+    width: 1px;
+    height: 20px;
+    background: var(--border-default);
+}
+
+@media (max-width: 640px) {
+    .container {
+        padding: var(--spacing-sm) var(--spacing-md);
+        gap: var(--spacing-md);
+    }
+
+    .stat {
+        font-size: 0.8125rem;
+    }
+}

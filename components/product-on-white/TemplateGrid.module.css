@@ -1,0 +1,469 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+/* Thumbnail Grid */
+.thumbnailGrid {
+    display: flex;
+    gap: var(--spacing-md);
+    overflow-x: auto;
+    padding-bottom: var(--spacing-sm);
+}
+
+.thumbnail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    background: var(--cream-light);
+    border: 2px solid transparent;
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    position: relative;
+}
+
+.thumbnail:hover {
+    border-color: var(--border-default);
+}
+
+.thumbnail.selected {
+    border-color: var(--brown-primary);
+    background: var(--cream-mid);
+}
+
+.thumbnailImage {
+    width: 100px;
+    height: 100px;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: var(--cream-warm);
+}
+
+.imagePlaceholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+}
+
+.thumbnailName {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.modifiedBadge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    padding: 2px 6px;
+    font-size: 0.625rem;
+    font-weight: 500;
+    background: var(--sage-green);
+    color: white;
+    border-radius: var(--radius-full);
+}
+
+.addButton {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    min-width: 100px;
+    min-height: 130px;
+    padding: var(--spacing-md);
+    background: transparent;
+    border: 2px dashed var(--border-default);
+    border-radius: var(--radius-lg);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.addButton:hover {
+    border-color: var(--brown-primary);
+    color: var(--brown-primary);
+    background: var(--cream-light);
+}
+
+.addButton span {
+    font-size: 0.8125rem;
+    font-weight: 500;
+}
+
+/* Details Section */
+.details {
+    background: var(--cream-light);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+}
+
+.detailsHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-md);
+}
+
+.detailsTitle {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.swapButton {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: 0.8125rem;
+    background: transparent;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.swapButton:hover {
+    background: white;
+    border-color: var(--brown-primary);
+    color: var(--brown-primary);
+}
+
+/* Prompt Section */
+.promptSection {
+    margin-bottom: var(--spacing-md);
+}
+
+.promptLabel {
+    display: block;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-bottom: var(--spacing-xs);
+}
+
+.basePrompt {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    padding: var(--spacing-sm);
+    background: white;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-light);
+}
+
+/* Edit Prompt Styles */
+.promptHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-xs);
+}
+
+.promptHeader .promptLabel {
+    margin-bottom: 0;
+}
+
+.editButton {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    background: transparent;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.editButton:hover {
+    background: white;
+    border-color: var(--brown-primary);
+    color: var(--brown-primary);
+}
+
+.editPromptContainer {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.editPromptInput {
+    width: 100%;
+    padding: var(--spacing-sm);
+    font-size: 0.875rem;
+    font-family: inherit;
+    background: white;
+    border: 2px solid var(--brown-primary);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    resize: vertical;
+    line-height: 1.5;
+}
+
+.editPromptInput:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(168, 123, 59, 0.15);
+}
+
+.editPromptActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-sm);
+}
+
+.cancelEditButton {
+    padding: var(--spacing-xs) var(--spacing-md);
+    font-size: 0.8125rem;
+    background: transparent;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.cancelEditButton:hover {
+    background: var(--cream-light);
+}
+
+.saveEditButton {
+    padding: var(--spacing-xs) var(--spacing-md);
+    font-size: 0.8125rem;
+    background: var(--brown-primary);
+    border: none;
+    border-radius: var(--radius-md);
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.saveEditButton:hover:not(:disabled) {
+    background: var(--brown-light);
+}
+
+.saveEditButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Modification Section */
+.modificationSection {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.modificationInput {
+    width: 100%;
+    padding: var(--spacing-sm);
+    font-size: 0.9375rem;
+    font-family: inherit;
+    background: white;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    resize: vertical;
+    transition: all 0.2s ease;
+}
+
+.modificationInput:focus {
+    outline: none;
+    border-color: var(--brown-primary);
+    box-shadow: 0 0 0 3px rgba(168, 123, 59, 0.1);
+}
+
+.modificationInput::placeholder {
+    color: var(--text-muted);
+}
+
+.presetRow {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+.presetLabel {
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+}
+
+.presetButton {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: 0.75rem;
+    background: var(--cream-warm);
+    border: none;
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.presetButton:hover {
+    background: var(--brown-primary);
+    color: white;
+}
+
+/* Modal */
+.modalOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: var(--spacing-xl);
+}
+
+.modal {
+    width: 100%;
+    max-width: 500px;
+    background: white;
+    border-radius: var(--radius-xl);
+    padding: var(--spacing-xl);
+    animation: slideUp 0.3s ease;
+}
+
+.modalTitle {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-xs);
+}
+
+.modalDescription {
+    font-size: 0.9375rem;
+    color: var(--text-muted);
+    margin-bottom: var(--spacing-lg);
+}
+
+.formGroup {
+    margin-bottom: var(--spacing-md);
+}
+
+.formLabel {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: var(--spacing-xs);
+}
+
+.formInput {
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: 0.9375rem;
+    background: var(--cream-light);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+}
+
+.formInput:focus {
+    outline: none;
+    border-color: var(--brown-primary);
+}
+
+.uploadPlaceholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-xl);
+    border: 2px dashed var(--border-default);
+    border-radius: var(--radius-lg);
+    background: var(--cream-light);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.uploadPlaceholder:hover {
+    border-color: var(--brown-primary);
+    color: var(--brown-primary);
+}
+
+.formTextarea {
+    width: 100%;
+    padding: var(--spacing-sm);
+    font-size: 0.9375rem;
+    font-family: inherit;
+    background: var(--cream-light);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    resize: vertical;
+}
+
+.formTextarea:focus {
+    outline: none;
+    border-color: var(--brown-primary);
+}
+
+.modalActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-lg);
+}
+
+.cancelButton {
+    padding: var(--spacing-sm) var(--spacing-lg);
+    font-size: 0.9375rem;
+    background: transparent;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.cancelButton:hover {
+    background: var(--cream-light);
+}
+
+.submitButton {
+    padding: var(--spacing-sm) var(--spacing-lg);
+    font-size: 0.9375rem;
+    background: var(--brown-primary);
+    border: none;
+    border-radius: var(--radius-md);
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.submitButton:hover {
+    background: var(--brown-light);
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
