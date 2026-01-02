@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-const APP_PASSWORD = process.env.APP_PASSWORD || 'charleegirl2026';
+// Trim the env var in case it has trailing newlines
+const APP_PASSWORD = (process.env.APP_PASSWORD || 'charleegirl2026').trim();
 const AUTH_COOKIE_NAME = 'charlee-auth';
 
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
         const { password } = body;
+        const trimmedPassword = (password || '').trim();
 
-        if (password === APP_PASSWORD) {
+        if (trimmedPassword === APP_PASSWORD) {
             // Set auth cookie
             const cookieStore = await cookies();
             cookieStore.set(AUTH_COOKIE_NAME, 'authenticated', {
