@@ -192,6 +192,7 @@ export default function ProductOnWhitePage() {
         setIsGenerating(true);
         setWorkflowStep('generating');
 
+        // Initialize all images as pending
         const initialImages: GeneratedImage[] = templates.map(template => ({
             id: `gen-${template.id}-${Date.now()}`,
             sessionId: `session-${Date.now()}`,
@@ -207,19 +208,104 @@ export default function ProductOnWhitePage() {
 
         setGeneratedImages(initialImages);
 
-        // Simulate generation (replace with actual API call)
-        setTimeout(() => {
+        // Process each template with the real API
+        for (let i = 0; i < templates.length; i++) {
+            const template = templates[i];
+            const imageId = initialImages[i].id;
+
+            // Update status to generating
             setGeneratedImages(prev =>
-                prev.map(img => ({
-                    ...img,
-                    status: 'completed' as const,
-                    generatedImageUrl: img.templateImageUrl,
-                    apiCost: 0.05,
-                }))
+                prev.map(img =>
+                    img.id === imageId
+                        ? { ...img, status: 'generating' as const }
+                        : img
+                )
             );
-            setIsGenerating(false);
-            setWorkflowStep('results');
-        }, 3000);
+
+            try {
+                // Build the prompt
+                const fullPrompt = template.basePrompt +
+                    (promptModifications[template.id] ? `\n\nAdditional instructions: ${promptModifications[template.id]}` : '');
+
+                // Create FormData for the API call
+                const formData = new FormData();
+
+                // Get template image - need to convert base64 or URL to File
+                let templateFile: File;
+                if (template.templateImageBase64) {
+                    // Convert base64 to File
+                    const base64Data = template.templateImageBase64.split(',')[1] || template.templateImageBase64;
+                    const mimeType = template.templateImageBase64.split(';')[0]?.split(':')[1] || 'image/png';
+                    const byteCharacters = atob(base64Data);
+                    const byteNumbers = new Array(byteCharacters.length);
+                    for (let j = 0; j < byteCharacters.length; j++) {
+                        byteNumbers[j] = byteCharacters.charCodeAt(j);
+                    }
+                    const byteArray = new Uint8Array(byteNumbers);
+                    const blob = new Blob([byteArray], { type: mimeType });
+                    templateFile = new File([blob], `template-${template.id}.png`, { type: mimeType });
+                } else if (template.templateImageUrl) {
+                    // Fetch the image from URL and convert to File
+                    const response = await fetch(template.templateImageUrl);
+                    const blob = await response.blob();
+                    templateFile = new File([blob], `template-${template.id}.png`, { type: blob.type });
+                } else {
+                    throw new Error(`Template ${template.name} has no image`);
+                }
+
+                formData.append('clothing', templateFile);
+                formData.append('pattern', patternImage);
+                formData.append('prompt', fullPrompt);
+
+                console.log(`[Generate] Processing template: ${template.name}`);
+
+                // Call the real API
+                const response = await fetch('/api/apply-pattern', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || 'Failed to generate image');
+                }
+
+                // Update with the generated image URL
+                setGeneratedImages(prev =>
+                    prev.map(img =>
+                        img.id === imageId
+                            ? {
+                                ...img,
+                                status: 'completed' as const,
+                                generatedImageUrl: data.imageUrl,
+                                apiCost: 0.02, // ~$0.02 per generation with Pro model
+                            }
+                            : img
+                    )
+                );
+
+                console.log(`[Generate] Completed template: ${template.name}`);
+
+            } catch (error) {
+                console.error(`[Generate] Failed for template ${template.name}:`, error);
+
+                // Mark as failed
+                setGeneratedImages(prev =>
+                    prev.map(img =>
+                        img.id === imageId
+                            ? {
+                                ...img,
+                                status: 'failed' as const,
+                            }
+                            : img
+                    )
+                );
+            }
+        }
+
+        setIsGenerating(false);
+        setWorkflowStep('results');
     };
 
     const handleRegenerate = async (imageId: string, refinementPrompt: string) => {
