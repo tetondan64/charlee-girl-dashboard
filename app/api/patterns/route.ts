@@ -19,13 +19,7 @@ const redisClient = (redisUrl && redisToken)
 
 const PATTERNS_KEY = 'charlee-girl-patterns';
 
-export interface PersistentPattern {
-    id: string;
-    name: string;
-    url: string;
-    productTypeId?: string; // Optional for backward compatibility/global patterns
-    createdAt: string;
-}
+
 
 // GET - Fetch patterns, optionally filtered by productTypeId
 export async function GET(request: Request) {
