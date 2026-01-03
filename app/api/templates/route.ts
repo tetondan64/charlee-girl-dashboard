@@ -82,6 +82,7 @@ export async function GET() {
             const response = NextResponse.json([defaultSet]);
             response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
             response.headers.set('X-Version', '1');
+            response.headers.set('Access-Control-Expose-Headers', 'X-Version');
             return response;
         }
 
@@ -94,6 +95,7 @@ export async function GET() {
             // If data exists but version missing (migration), treat as version 1
             response.headers.set('X-Version', '1');
         }
+        response.headers.set('Access-Control-Expose-Headers', 'X-Version');
         return response;
     } catch (error) {
         console.error('[GET /api/templates] Error:', error);
@@ -103,6 +105,7 @@ export async function GET() {
             const defaultSet = getDefaultTemplateSet();
             const response = NextResponse.json([defaultSet]);
             response.headers.set('X-Version', '1');
+            response.headers.set('Access-Control-Expose-Headers', 'X-Version');
             return response;
         }
         return NextResponse.json(
@@ -166,6 +169,7 @@ export async function POST(request: Request) {
                 console.log(`[POST /api/templates] Successfully created set via CAS (Attempt ${attempts})`);
                 const response = NextResponse.json(newSet, { status: 201 });
                 response.headers.set('X-Version', String(result));
+                response.headers.set('Access-Control-Expose-Headers', 'X-Version');
                 return response;
             }
 
@@ -238,6 +242,7 @@ export async function PUT(request: Request) {
         const response = NextResponse.json(updatedSets);
         response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
         response.headers.set('X-Version', newVersion);
+        response.headers.set('Access-Control-Expose-Headers', 'X-Version');
         return response;
     } catch (error) {
         console.error('[PUT /api/templates] Error:', error);
