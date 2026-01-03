@@ -100,11 +100,14 @@ export default function TemplateGrid({
             {/* Template Thumbnails */}
             <div className={styles.thumbnailGrid}>
                 {templates.map((template) => (
-                    <button
+                    <div
                         key={template.id}
                         className={`${styles.thumbnail} ${selectedTemplate === template.id ? styles.selected : ''
                             }`}
                         onClick={() => setSelectedTemplate(template.id)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => e.key === 'Enter' && setSelectedTemplate(template.id)}
                     >
                         <div className={styles.thumbnailImage}>
                             {template.templateImageUrl ? (
@@ -138,7 +141,7 @@ export default function TemplateGrid({
                                 <path d="m6 6 12 12" />
                             </svg>
                         </button>
-                    </button>
+                    </div>
                 ))}
 
                 {/* Add New Button */}
