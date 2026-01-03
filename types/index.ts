@@ -19,7 +19,8 @@ export interface ImageTemplate {
     id: string;
     name: string;
     templateImageUrl: string;
-    templateImageBase64?: string; // For local storage
+    /** @deprecated Use templateImageUrl with Vercel Blob URL instead */
+    templateImageBase64?: string; // For local storage / legacy
     basePrompt: string;
     sortOrder: number;
     createdAt: Date;

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { upload } from '@vercel/blob/client';
 import styles from './TemplateGrid.module.css';
 import { ImageType } from '@/types';
 
@@ -27,6 +28,7 @@ export default function TemplateGrid({
     // New template form state
     const [newTemplateImage, setNewTemplateImage] = useState<File | null>(null);
     const [newTemplateImagePreview, setNewTemplateImagePreview] = useState<string>('');
+    const [isUploading, setIsUploading] = useState(false);
 
     const selectedTemplateData = templates.find(t => t.id === selectedTemplate);
 
@@ -55,9 +57,11 @@ export default function TemplateGrid({
     };
 
     const handleCloseModal = () => {
+        if (isUploading) return; // Prevent closing while uploading
         setShowAddModal(false);
         setNewTemplateImage(null);
         setNewTemplateImagePreview('');
+        setIsUploading(false);
     };
 
     const handleStartEditBasePrompt = () => {
@@ -277,16 +281,33 @@ export default function TemplateGrid({
                                 Upload a new template image and provide a generation prompt.
                             </p>
                             <form
-                                onSubmit={(e) => {
+                                onSubmit={async (e) => {
                                     e.preventDefault();
-                                    const formData = new FormData(e.currentTarget);
-                                    handleAddTemplate({
-                                        name: formData.get('name') as string,
-                                        templateImageUrl: newTemplateImagePreview || '',
-                                        templateImageBase64: newTemplateImagePreview || undefined,
-                                        basePrompt: formData.get('prompt') as string,
-                                        sortOrder: templates.length,
-                                    });
+                                    if (!newTemplateImage) return;
+
+                                    setIsUploading(true);
+                                    try {
+                                        // Upload to Vercel Blob
+                                        const blob = await upload(newTemplateImage.name, newTemplateImage, {
+                                            access: 'public',
+                                            handleUploadUrl: '/api/upload',
+                                        });
+
+                                        const formData = new FormData(e.currentTarget);
+                                        handleAddTemplate({
+                                            name: formData.get('name') as string,
+                                            templateImageUrl: blob.url,
+                                            // Do NOT set base64 to avoid payload limits
+                                            templateImageBase64: undefined,
+                                            basePrompt: formData.get('prompt') as string,
+                                            sortOrder: templates.length,
+                                        });
+                                    } catch (err) {
+                                        console.error('Upload failed:', err);
+                                        alert('Failed to upload image. Please try again.');
+                                    } finally {
+                                        setIsUploading(false);
+                                    }
                                 }}
                             >
                                 <div className={styles.formGroup}>
@@ -351,11 +372,16 @@ export default function TemplateGrid({
                                         type="button"
                                         onClick={() => setShowAddModal(false)}
                                         className={styles.cancelButton}
+                                        disabled={isUploading}
                                     >
                                         Cancel
                                     </button>
-                                    <button type="submit" className={styles.submitButton}>
-                                        Add Template
+                                    <button
+                                        type="submit"
+                                        className={styles.submitButton}
+                                        disabled={isUploading || !newTemplateImage}
+                                    >
+                                        {isUploading ? 'Uploading...' : 'Add Template'}
                                     </button>
                                 </div>
                             </form>
