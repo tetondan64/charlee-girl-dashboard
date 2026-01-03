@@ -29,6 +29,9 @@ export default function PatternUpload({
     const [isLoadingPatterns, setIsLoadingPatterns] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
 
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [isSelectionMode, setIsSelectionMode] = useState(false);
+
     // Fetch saved patterns
     const fetchPatterns = useCallback(async () => {
         setIsLoadingPatterns(true);
@@ -46,13 +49,33 @@ export default function PatternUpload({
     }, []);
 
     useEffect(() => {
-        if (activeTab === 'saved') {
-            fetchPatterns();
+        // Always fetch patterns on mount
+        fetchPatterns();
+    }, [fetchPatterns]);
+
+    useEffect(() => {
+        if (activeTab !== 'saved') {
+            setIsSelectionMode(false);
+            setSelectedIds(new Set());
         }
-    }, [activeTab, fetchPatterns]);
+    }, [activeTab]);
 
     const handleFile = useCallback(async (file: File) => {
         if (file.type.startsWith('image/')) {
+            // Check for duplicate name
+            const derivedName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+            // Ensure we have the latest list if possible, but state is best we have
+            const existing = savedPatterns.find(p => p.name.toLowerCase() === derivedName.toLowerCase());
+
+            if (existing) {
+                // If user confirms, use the existing pattern instead of re-uploading
+                if (confirm(`Pattern "${derivedName}" already exists in your saved patterns.\n\nClick OK to use the existing pattern.\nClick Cancel to upload as a new copy.`)) {
+                    onUpload(existing.url);
+                    onPatternNameChange(existing.name);
+                    return;
+                }
+            }
+
             // 1. Set as current immediately for preview
             onUpload(file);
 
@@ -67,7 +90,8 @@ export default function PatternUpload({
                 // 3. Save to Redis
                 const newPattern: PersistentPattern = {
                     id: `pat-${Date.now()}`,
-                    name: file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '),
+                    // If duplicate, append timestamp to name to avoid exact name collision in DB if strictly enforced (it's not, but good practice)
+                    name: existing ? `${derivedName} ${new Date().toLocaleTimeString()}` : derivedName,
                     url: newBlob.url,
                 };
 
@@ -76,7 +100,7 @@ export default function PatternUpload({
                     body: JSON.stringify(newPattern),
                 });
 
-                // Refresh list if we switch tabs
+                // Refresh list
                 fetchPatterns();
 
             } catch (err) {
@@ -85,11 +109,21 @@ export default function PatternUpload({
                 setIsUploading(false);
             }
         }
-    }, [onUpload, fetchPatterns]);
+    }, [onUpload, fetchPatterns, savedPatterns]);
 
     const handleSwatchSelect = (pattern: PersistentPattern) => {
-        onUpload(pattern.url);
-        onPatternNameChange(pattern.name);
+        if (isSelectionMode) {
+            const newSelected = new Set(selectedIds);
+            if (newSelected.has(pattern.id)) {
+                newSelected.delete(pattern.id);
+            } else {
+                newSelected.add(pattern.id);
+            }
+            setSelectedIds(newSelected);
+        } else {
+            onUpload(pattern.url);
+            onPatternNameChange(pattern.name);
+        }
     };
 
     const handleDeletePattern = async (e: React.MouseEvent, id: string) => {
@@ -98,10 +132,36 @@ export default function PatternUpload({
 
         try {
             await fetch(`/api/patterns?id=${id}`, { method: 'DELETE' });
-            fetchPatterns(); // Refresh
+            fetchPatterns();
         } catch (err) {
             console.error('Failed to delete pattern:', err);
         }
+    };
+
+    const handleBulkDelete = async () => {
+        if (selectedIds.size === 0) return;
+        if (!confirm(`Delete ${selectedIds.size} saved patterns?`)) return;
+
+        try {
+            // Delete sequentially to avoid overwhelming server/rate limits (or parallel if safe)
+            // Parallel is probably fine for < 50 items
+            await Promise.all(Array.from(selectedIds).map(id =>
+                fetch(`/api/patterns?id=${id}`, { method: 'DELETE' })
+            ));
+
+            setSelectedIds(new Set());
+            setIsSelectionMode(false);
+            fetchPatterns();
+        } catch (err) {
+            console.error('Failed to delete patterns:', err);
+            alert('Some patterns failed to delete');
+            fetchPatterns();
+        }
+    };
+
+    const toggleSelectionMode = () => {
+        setIsSelectionMode(!isSelectionMode);
+        setSelectedIds(new Set());
     };
 
     const handleRemoveCurrent = useCallback(() => {
@@ -127,16 +187,28 @@ export default function PatternUpload({
                 >
                     Upload New
                 </button>
-                <button
-                    className={`${styles.tab} ${activeTab === 'saved' ? styles.activeTab : ''}`}
-                    onClick={() => setActiveTab('saved')}
-                >
-                    Saved Swatches
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <button
+                        className={`${styles.tab} ${activeTab === 'saved' ? styles.activeTab : ''}`}
+                        onClick={() => setActiveTab('saved')}
+                    >
+                        Saved Swatches
+                    </button>
+                    {activeTab === 'saved' && savedPatterns.length > 0 && (
+                        <button
+                            className={styles.selectionToggle}
+                            onClick={toggleSelectionMode}
+                            title={isSelectionMode ? "Cancel selection" : "Select multiple to delete"}
+                        >
+                            {isSelectionMode ? 'Cancel' : 'Select'}
+                        </button>
+                    )}
+                </div>
             </div>
 
             {activeTab === 'upload' && (
                 <div className={styles.tabContent}>
+                    {/* ... (upload content remains same) ... */}
                     {!currentFile ? (
                         <div
                             className={`${styles.dropzone} ${isDragging ? styles.dragging : ''}`}
@@ -195,38 +267,71 @@ export default function PatternUpload({
             )}
 
             {activeTab === 'saved' && (
-                <div className={styles.swatchGrid}>
-                    {isLoadingPatterns ? (
-                        <div className={styles.loading}>Loading patterns...</div>
-                    ) : savedPatterns.length === 0 ? (
-                        <div className={styles.emptyState}>No saved patterns yet. Upload one!</div>
-                    ) : (
-                        savedPatterns.map(pattern => (
-                            <div
-                                key={pattern.id}
-                                className={`${styles.swatchWrapper} ${currentFile === pattern.url ? styles.selectedSwatch : ''}`}
-                                onClick={() => handleSwatchSelect(pattern)}
-                            >
-                                <div className={styles.swatchImage}>
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src={pattern.url} alt={pattern.name} />
-                                </div>
-                                <div className={styles.swatchLabel}>{pattern.name}</div>
+                <div className={styles.savedContainer}>
+                    {isSelectionMode && (
+                        <div className={styles.selectionBar}>
+                            <span>{selectedIds.size} selected</span>
+                            {selectedIds.size > 0 && (
                                 <button
-                                    className={styles.deleteSwatch}
-                                    onClick={(e) => handleDeletePattern(e, pattern.id)}
-                                    title="Delete pattern"
+                                    className={styles.bulkDeleteButton}
+                                    onClick={handleBulkDelete}
                                 >
-                                    ×
+                                    Delete Selected
                                 </button>
-                                {/* Zoom Popup (CSS Only) */}
-                                <div className={styles.zoomPopup}>
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src={pattern.url} alt={pattern.name} />
-                                </div>
-                            </div>
-                        ))
+                            )}
+                        </div>
                     )}
+                    <div className={styles.swatchGrid}>
+                        {isLoadingPatterns ? (
+                            <div className={styles.loading}>Loading patterns...</div>
+                        ) : savedPatterns.length === 0 ? (
+                            <div className={styles.emptyState}>No saved patterns yet. Upload one!</div>
+                        ) : (
+                            savedPatterns.map(pattern => (
+                                <div
+                                    key={pattern.id}
+                                    className={`
+                                        ${styles.swatchWrapper} 
+                                        ${!isSelectionMode && currentFile === pattern.url ? styles.selectedSwatch : ''}
+                                        ${isSelectionMode && selectedIds.has(pattern.id) ? styles.selectedForDeletion : ''}
+                                        ${isSelectionMode ? styles.selectionMode : ''}
+                                    `}
+                                    onClick={() => handleSwatchSelect(pattern)}
+                                >
+                                    <div className={styles.swatchImage}>
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img src={pattern.url} alt={pattern.name} />
+                                        {isSelectionMode && (
+                                            <div className={styles.checkbox}>
+                                                {selectedIds.has(pattern.id) && (
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+                                                        <polyline points="20 6 9 17 4 12" />
+                                                    </svg>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className={styles.swatchLabel}>{pattern.name}</div>
+                                    {!isSelectionMode && (
+                                        <button
+                                            className={styles.deleteSwatch}
+                                            onClick={(e) => handleDeletePattern(e, pattern.id)}
+                                            title="Delete pattern"
+                                        >
+                                            ×
+                                        </button>
+                                    )}
+                                    {/* Zoom Popup (CSS Only) */}
+                                    {!isSelectionMode && (
+                                        <div className={styles.zoomPopup}>
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img src={pattern.url} alt={pattern.name} />
+                                        </div>
+                                    )}
+                                </div>
+                            ))
+                        )}
+                    </div>
                 </div>
             )}
 

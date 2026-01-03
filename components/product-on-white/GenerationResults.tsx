@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import styles from './GenerationResults.module.css';
 import { GeneratedImage, ImageType } from '@/types';
+import ImageComparisonModal from './ImageComparisonModal';
 
 interface GenerationResultsProps {
     images: GeneratedImage[];
@@ -21,9 +22,26 @@ export default function GenerationResults({
 }: GenerationResultsProps) {
     const [refinementPrompts, setRefinementPrompts] = useState<Record<string, string>>({});
     const [downloadingAll, setDownloadingAll] = useState(false);
+    const [downloadingId, setDownloadingId] = useState<string | null>(null);
+    const [zoomModal, setZoomModal] = useState<{
+        isOpen: boolean;
+        templateImage: string;
+        generatedImage: string;
+        title: string;
+    }>({
+        isOpen: false,
+        templateImage: '',
+        generatedImage: '',
+        title: ''
+    });
 
     const getTemplateName = (imageTypeId: string) => {
         return templates.find(t => t.id === imageTypeId)?.name || 'Unknown';
+    };
+
+    const getTemplateImage = (imageTypeId: string) => {
+        const template = templates.find(t => t.id === imageTypeId);
+        return template?.templateImageUrl || template?.templateImageBase64 || null;
     };
 
     const formatFileName = (index: number) => {
@@ -38,6 +56,40 @@ export default function GenerationResults({
         setDownloadingAll(false);
         // In real implementation, would trigger a zip download
         alert('Download All functionality will be connected to actual image files');
+    };
+
+    const handleDownload = async (imageUrl: string, fileName: string, id: string) => {
+        setDownloadingId(id);
+        try {
+            const response = await fetch(imageUrl);
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } catch (error) {
+            console.error('Download failed:', error);
+            alert('Failed to download image');
+        } finally {
+            setDownloadingId(null);
+        }
+    };
+
+    const openZoomModal = (image: GeneratedImage, index: number) => {
+        if (!image.generatedImageUrl) return;
+        const tmplImg = getTemplateImage(image.imageTypeId);
+        if (!tmplImg) return;
+
+        setZoomModal({
+            isOpen: true,
+            templateImage: tmplImg,
+            generatedImage: image.generatedImageUrl,
+            title: `${patternName} - ${getTemplateName(image.imageTypeId)}`
+        });
     };
 
     const completedImages = images.filter(img => img.status === 'completed');
@@ -103,14 +155,24 @@ export default function GenerationResults({
                             <div className={styles.comparisonSide}>
                                 <span className={styles.sideLabel}>Template</span>
                                 <div className={styles.imageContainer}>
-                                    <div className={styles.imagePlaceholder}>
-                                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                            <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-                                            <circle cx="9" cy="9" r="2" />
-                                            <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-                                        </svg>
-                                        <span>Original</span>
-                                    </div>
+                                    {getTemplateImage(image.imageTypeId) ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img
+                                            src={getTemplateImage(image.imageTypeId)!}
+                                            alt="Original Template"
+                                            className={styles.templateImage}
+                                            onClick={() => openZoomModal(image, index)}
+                                        />
+                                    ) : (
+                                        <div className={styles.imagePlaceholder}>
+                                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                                                <circle cx="9" cy="9" r="2" />
+                                                <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                                            </svg>
+                                            <span>Original</span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -147,11 +209,27 @@ export default function GenerationResults({
                                         </div>
                                     ) : (
                                         image.generatedImageUrl ? (
-                                            <img
-                                                src={image.generatedImageUrl}
-                                                alt={`Generated ${getTemplateName(image.imageTypeId)}`}
-                                                className={styles.generatedImage}
-                                            />
+                                            <>
+                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                <img
+                                                    src={image.generatedImageUrl}
+                                                    alt={`Generated ${getTemplateName(image.imageTypeId)}`}
+                                                    className={styles.generatedImage}
+                                                    onClick={() => openZoomModal(image, index)}
+                                                />
+                                                <button
+                                                    className={styles.zoomButton}
+                                                    onClick={() => openZoomModal(image, index)}
+                                                    title="Magnify"
+                                                >
+                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <circle cx="11" cy="11" r="8" />
+                                                        <path d="m21 21-4.3-4.3" />
+                                                        <path d="M11 8v6" />
+                                                        <path d="M8 11h6" />
+                                                    </svg>
+                                                </button>
+                                            </>
                                         ) : (
                                             <div className={styles.imagePlaceholder}>
                                                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -217,12 +295,20 @@ export default function GenerationResults({
                                     </div>
                                     <div className={styles.cardActions}>
                                         <span className={styles.fileName}>{formatFileName(index)}</span>
-                                        <button className={styles.downloadButton}>
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                                <polyline points="7 10 12 15 17 10" />
-                                                <line x1="12" y1="15" x2="12" y2="3" />
-                                            </svg>
+                                        <button
+                                            className={styles.downloadButton}
+                                            onClick={() => handleDownload(image.generatedImageUrl!, formatFileName(index), image.id)}
+                                            disabled={downloadingId === image.id}
+                                        >
+                                            {downloadingId === image.id ? (
+                                                <span className={styles.spinnerSmall}></span>
+                                            ) : (
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                                    <polyline points="7 10 12 15 17 10" />
+                                                    <line x1="12" y1="15" x2="12" y2="3" />
+                                                </svg>
+                                            )}
                                             Download
                                         </button>
                                     </div>
@@ -232,6 +318,14 @@ export default function GenerationResults({
                     </div>
                 ))}
             </div>
+
+            <ImageComparisonModal
+                isOpen={zoomModal.isOpen}
+                onClose={() => setZoomModal(prev => ({ ...prev, isOpen: false }))}
+                templateImage={zoomModal.templateImage}
+                generatedImage={zoomModal.generatedImage}
+                title={zoomModal.title}
+            />
         </div>
     );
 }

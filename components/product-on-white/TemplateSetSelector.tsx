@@ -76,7 +76,7 @@ export default function TemplateSetSelector({
                         )}
                         {templateSets.map((set) => (
                             <option key={set.id} value={set.id}>
-                                {set.icon} {set.name} ({set.templates.length} templates)
+                                {set.icon} {set.name} ({(set.templates || []).length} templates)
                             </option>
                         ))}
                     </select>
@@ -109,7 +109,7 @@ export default function TemplateSetSelector({
 
             {selectedSet && (
                 <p className={styles.hint}>
-                    {selectedSet.templates.length} template{selectedSet.templates.length !== 1 ? 's' : ''} in this set
+                    {(selectedSet.templates || []).length} template{(selectedSet.templates || []).length !== 1 ? 's' : ''} in this set
                 </p>
             )}
 
@@ -208,7 +208,7 @@ export default function TemplateSetSelector({
                                             <span className={styles.setIcon}>{set.icon}</span>
                                             <span className={styles.setName}>{set.name}</span>
                                             <span className={styles.templateCount}>
-                                                {set.templates.length} templates
+                                                {(set.templates || []).length} templates
                                             </span>
                                             <button
                                                 onClick={() => handleStartEdit(set)}

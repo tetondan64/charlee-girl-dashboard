@@ -23,6 +23,7 @@ export interface ImageTemplate {
     templateImageBase64?: string; // For local storage / legacy
     basePrompt: string;
     sortOrder: number;
+    isActive: boolean;
     createdAt: Date;
     updatedAt: Date;
 }

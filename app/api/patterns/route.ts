@@ -5,11 +5,13 @@ import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-// Initialize Redis client
-const redis = new Redis({
-    url: process.env.UPSTASH_REDIS_REST_URL!,
-    token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-});
+// Initialize Redis client safely
+const redisClient = (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
+    ? new Redis({
+        url: process.env.UPSTASH_REDIS_REST_URL,
+        token: process.env.UPSTASH_REDIS_REST_TOKEN,
+    })
+    : null;
 
 const PATTERNS_KEY = 'charlee-girl-patterns';
 
@@ -23,7 +25,11 @@ export interface PersistentPattern {
 // GET - Fetch all patterns
 export async function GET() {
     try {
-        const patterns = await redis.get<PersistentPattern[]>(PATTERNS_KEY);
+        if (!redisClient) {
+            console.warn('[GET /api/patterns] Redis not configured, returning empty list');
+            return NextResponse.json([]);
+        }
+        const patterns = await redisClient.get<PersistentPattern[]>(PATTERNS_KEY);
         return NextResponse.json(patterns || []);
     } catch (error) {
         console.error('Failed to fetch patterns:', error);
@@ -36,12 +42,17 @@ export async function POST(request: Request) {
     try {
         const newPattern: PersistentPattern = await request.json();
 
+        if (!redisClient) {
+            console.warn('[POST /api/patterns] Redis not configured, preventing save');
+            return NextResponse.json({ error: 'Storage not available in local mode' }, { status: 503 });
+        }
+
         // Simple append - concurrency isn't as critical here as templates, 
         // but we'll specific implementation to be safe-ish
-        const currentPatterns = (await redis.get<PersistentPattern[]>(PATTERNS_KEY)) || [];
+        const currentPatterns = (await redisClient.get<PersistentPattern[]>(PATTERNS_KEY)) || [];
         const updatedPatterns = [...currentPatterns, newPattern];
 
-        await redis.set(PATTERNS_KEY, updatedPatterns);
+        await redisClient.set(PATTERNS_KEY, updatedPatterns);
 
         return NextResponse.json(newPattern, { status: 201 });
     } catch (error) {
@@ -53,6 +64,11 @@ export async function POST(request: Request) {
 // DELETE - Remove a pattern
 export async function DELETE(request: Request) {
     try {
+        if (!redisClient) {
+            console.warn('[DELETE /api/patterns] Redis not configured');
+            return NextResponse.json({ error: 'Storage not available in local mode' }, { status: 503 });
+        }
+
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
 
@@ -60,10 +76,10 @@ export async function DELETE(request: Request) {
             return NextResponse.json({ error: 'Pattern ID require' }, { status: 400 });
         }
 
-        const currentPatterns = (await redis.get<PersistentPattern[]>(PATTERNS_KEY)) || [];
+        const currentPatterns = (await redisClient.get<PersistentPattern[]>(PATTERNS_KEY)) || [];
         const updatedPatterns = currentPatterns.filter(p => p.id !== id);
 
-        await redis.set(PATTERNS_KEY, updatedPatterns);
+        await redisClient.set(PATTERNS_KEY, updatedPatterns);
 
         return NextResponse.json({ success: true });
     } catch (error) {

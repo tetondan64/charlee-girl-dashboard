@@ -15,6 +15,8 @@
     gap: 0.5rem;
     border-bottom: 1px solid #eee;
     margin-bottom: 0.5rem;
+    justify-content: space-between;
+    /* Allow toggle button to sit on right */
 }
 
 .tab {
@@ -191,6 +193,7 @@
     border-radius: 6px;
     overflow: hidden;
     background: #eee;
+    position: relative;
 }
 
 .swatchImage img {
@@ -293,4 +296,93 @@
 .input:focus {
     outline: none;
     border-color: #8b5e34;
+}
+
+/* Multi-select Styles */
+.selectionToggle {
+    background: none;
+    border: none;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+    color: #8b5e34;
+    cursor: pointer;
+    margin-left: 0.5rem;
+    text-decoration: underline;
+    opacity: 0.8;
+}
+
+.selectionToggle:hover {
+    opacity: 1;
+}
+
+.savedContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.selectionBar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #fff8eb;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    color: #8b5e34;
+    font-weight: 500;
+}
+
+.bulkDeleteButton {
+    background: #d32f2f;
+    color: white;
+    border: none;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.bulkDeleteButton:hover {
+    background: #b71c1c;
+}
+
+.selectedForDeletion {
+    border-color: #d32f2f !important;
+    background: #fee2e2;
+}
+
+.selectionMode {
+    border: 2px solid transparent;
+    /* Ensure border width logic works */
+}
+
+/* Hide zoom popup in selection mode */
+.selectionMode:hover .zoomPopup {
+    display: none !important;
+    opacity: 0 !important;
+    transform: translate(-50%, -50%) scale(0) !important;
+}
+
+.checkbox {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: white;
+    border-radius: 4px;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #d32f2f;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    border: 1px solid #eee;
+}
+
+.selectedForDeletion .checkbox {
+    background: #d32f2f;
+    color: white;
+    border-color: #d32f2f;
 }

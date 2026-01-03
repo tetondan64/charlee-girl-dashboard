@@ -158,7 +158,15 @@ export async function POST(req: NextRequest) {
                    ${userPrompt ? `Additional instructions: ${userPrompt}` : ''}`
                     }
                 ]
-            }]
+            }],
+            generationConfig: {
+                // @ts-ignore - The SDK types might not be up to date for image generation config
+                responseModalities: ['TEXT', 'IMAGE'],
+                imageConfig: {
+                    aspectRatio: aspectRatio === '1:1' ? '1:1' : aspectRatio,
+                    imageSize: size.toUpperCase(),
+                }
+            }
         });
 
         // Extract the generated image

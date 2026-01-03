@@ -10,6 +10,7 @@ import OutputSettings from '@/components/product-on-white/OutputSettings';
 import GenerationResults from '@/components/product-on-white/GenerationResults';
 import { TemplateSet, ImageTemplate, OutputSettings as OutputSettingsType, GeneratedImage } from '@/types';
 
+import Link from 'next/link';
 // API functions for server-side persistence
 const fetchTemplateSets = async (): Promise<{ sets: TemplateSet[], version: string | null }> => {
     try {
@@ -24,7 +25,7 @@ const fetchTemplateSets = async (): Promise<{ sets: TemplateSet[], version: stri
             ...set,
             createdAt: new Date(set.createdAt),
             updatedAt: new Date(set.updatedAt),
-            templates: set.templates.map((t: ImageTemplate) => ({
+            templates: (set.templates || []).map((t: ImageTemplate) => ({
                 ...t,
                 createdAt: new Date(t.createdAt),
                 updatedAt: new Date(t.updatedAt),
@@ -218,9 +219,10 @@ export default function ProductOnWhitePage() {
     const handleGenerate = async () => {
         if (!patternImage || !selectedSet) return;
 
-        // Filter to only templates with images
+        // Filter to only templates with images AND that are active
         const validTemplates = templates.filter(t =>
-            t.templateImageBase64 || (t.templateImageUrl && !t.templateImageUrl.startsWith('blob:'))
+            (t.isActive !== false) && // Treat undefined as true for backward compatibility
+            (t.templateImageBase64 || (t.templateImageUrl && !t.templateImageUrl.startsWith('blob:')))
         );
 
         if (validTemplates.length === 0) {
@@ -231,10 +233,13 @@ export default function ProductOnWhitePage() {
         setIsGenerating(true);
         setWorkflowStep('generating');
 
+        // Initialize session
+        const sessionId = `session-${Date.now()}`;
+
         // Initialize all images as pending
         const initialImages: GeneratedImage[] = validTemplates.map(template => ({
             id: `gen-${template.id}-${Date.now()}`,
-            sessionId: `session-${Date.now()}`,
+            sessionId: sessionId,
             imageTypeId: template.id,
             templateImageUrl: template.templateImageUrl,
             promptUsed: template.basePrompt + (promptModifications[template.id] ? `\n\nAdditional instructions: ${promptModifications[template.id]}` : ''),
@@ -246,6 +251,8 @@ export default function ProductOnWhitePage() {
         }));
 
         setGeneratedImages(initialImages);
+
+        const finalImages: GeneratedImage[] = [];
 
         // Process each template with the real API
         for (let i = 0; i < validTemplates.length; i++) {
@@ -311,17 +318,18 @@ export default function ProductOnWhitePage() {
                 }
 
                 // Update with the generated image URL
+                // Update with the generated image URL
+                const updatedImage: GeneratedImage = {
+                    ...initialImages[i],
+                    status: 'completed',
+                    generatedImageUrl: data.imageUrl,
+                    apiCost: 0.02,
+                };
+
+                finalImages.push(updatedImage);
+
                 setGeneratedImages(prev =>
-                    prev.map(img =>
-                        img.id === imageId
-                            ? {
-                                ...img,
-                                status: 'completed' as const,
-                                generatedImageUrl: data.imageUrl,
-                                apiCost: 0.02, // ~$0.02 per generation with Pro model
-                            }
-                            : img
-                    )
+                    prev.map(img => img.id === imageId ? updatedImage : img)
                 );
 
                 console.log(`[Generate] Completed template: ${template.name}`);
@@ -330,18 +338,40 @@ export default function ProductOnWhitePage() {
                 console.error(`[Generate] Failed for template ${template.name}:`, error);
 
                 // Mark as failed
+                const failedImage: GeneratedImage = {
+                    ...initialImages[i],
+                    status: 'failed',
+                    errorMessage: error instanceof Error ? error.message : 'Unknown error occurred',
+                };
+
+                finalImages.push(failedImage);
+
                 setGeneratedImages(prev =>
-                    prev.map(img =>
-                        img.id === imageId
-                            ? {
-                                ...img,
-                                status: 'failed' as const,
-                                errorMessage: error instanceof Error ? error.message : 'Unknown error occurred',
-                            }
-                            : img
-                    )
+                    prev.map(img => img.id === imageId ? failedImage : img)
                 );
             }
+        }
+
+        // Save session to history
+        try {
+            await fetch('/api/history', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: sessionId,
+                    productTypeId: selectedSet?.name || 'Unknown',
+                    patternImageUrl: typeof patternImage === 'string' ? patternImage : 'uploaded-file', // Ideally handle file blob properly
+                    patternName,
+                    outputSettings,
+                    createdAt: new Date(),
+                    status: finalImages.some(i => i.status === 'failed')
+                        ? (finalImages.some(i => i.status === 'completed') ? 'in_progress' : 'failed')
+                        : 'completed',
+                    images: finalImages
+                }),
+            });
+        } catch (err) {
+            console.error('Failed to save history:', err);
         }
 
         setIsGenerating(false);
@@ -386,9 +416,10 @@ export default function ProductOnWhitePage() {
         setGeneratedImages([]);
     };
 
-    // Count templates that have valid images
+    // Count templates that have valid images AND are active
     const templatesWithImages = templates.filter(t =>
-        t.templateImageBase64 || (t.templateImageUrl && !t.templateImageUrl.startsWith('blob:'))
+        (t.isActive !== false) &&
+        (t.templateImageBase64 || (t.templateImageUrl && !t.templateImageUrl.startsWith('blob:')))
     );
     const readyToGenerate = templatesWithImages.length;
     const canGenerate = patternImage && patternName.trim() && readyToGenerate > 0;
@@ -415,6 +446,19 @@ export default function ProductOnWhitePage() {
             <main className={styles.main}>
                 {workflowStep === 'setup' && (
                     <div className={styles.setupContainer}>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+                            <Link href="/history" style={{
+                                color: 'var(--brown-primary)',
+                                textDecoration: 'none',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                fontWeight: 500
+                            }}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                                View History
+                            </Link>
+                        </div>
                         {/* Step 1: Template Set & Pattern */}
                         <section className={styles.section}>
                             <div className={styles.sectionHeader}>
