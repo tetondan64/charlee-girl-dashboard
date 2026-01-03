@@ -86,12 +86,11 @@ export default function TemplateGrid({
 
     const handleDeleteTemplate = (templateId: string, e: React.MouseEvent) => {
         e.stopPropagation(); // Prevent selecting the template
-        if (confirm('Delete this template?')) {
-            const updatedTemplates = templates.filter(t => t.id !== templateId);
-            onTemplatesChange(updatedTemplates);
-            if (selectedTemplate === templateId) {
-                setSelectedTemplate(updatedTemplates[0]?.id || null);
-            }
+        // Delete immediately without confirmation
+        const updatedTemplates = templates.filter(t => t.id !== templateId);
+        onTemplatesChange(updatedTemplates);
+        if (selectedTemplate === templateId) {
+            setSelectedTemplate(updatedTemplates[0]?.id || null);
         }
     };
 
