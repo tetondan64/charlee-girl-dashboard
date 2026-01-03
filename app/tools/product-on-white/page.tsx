@@ -11,12 +11,12 @@ import GenerationResults from '@/components/product-on-white/GenerationResults';
 import { TemplateSet, ImageTemplate, OutputSettings as OutputSettingsType, GeneratedImage } from '@/types';
 
 // API functions for server-side persistence
-const fetchTemplateSets = async (): Promise<{ sets: TemplateSet[], etag: string | null }> => {
+const fetchTemplateSets = async (): Promise<{ sets: TemplateSet[], version: string | null }> => {
     try {
         const response = await fetch('/api/templates');
         if (!response.ok) throw new Error('Failed to fetch templates');
 
-        const etag = response.headers.get('ETag');
+        const version = response.headers.get('X-Version');
         const data = await response.json();
 
         // Convert date strings to Date objects
@@ -31,20 +31,20 @@ const fetchTemplateSets = async (): Promise<{ sets: TemplateSet[], etag: string 
             })),
         }));
 
-        return { sets, etag };
+        return { sets, version };
     } catch (error) {
         console.error('Failed to fetch template sets:', error);
-        return { sets: [], etag: null };
+        return { sets: [], version: null };
     }
 };
 
-const saveTemplateSetsToServer = async (sets: TemplateSet[], etag: string | null): Promise<{ success: boolean, newEtag?: string, status?: number }> => {
+const saveTemplateSetsToServer = async (sets: TemplateSet[], version: string | null): Promise<{ success: boolean, newVersion?: string, status?: number }> => {
     try {
         const headers: Record<string, string> = {
             'Content-Type': 'application/json',
         };
-        if (etag) {
-            headers['If-Match'] = etag;
+        if (version) {
+            headers['X-Version'] = version;
         }
 
         const response = await fetch('/api/templates', {
@@ -54,8 +54,8 @@ const saveTemplateSetsToServer = async (sets: TemplateSet[], etag: string | null
         });
 
         if (response.ok) {
-            const newEtag = response.headers.get('ETag') || undefined;
-            return { success: true, newEtag, status: response.status };
+            const newVersion = response.headers.get('X-Version') || undefined;
+            return { success: true, newVersion, status: response.status };
         } else {
             return { success: false, status: response.status };
         }
@@ -87,20 +87,20 @@ export default function ProductOnWhitePage() {
 
     // Ref to track if initial load is complete (to prevent saving during load)
     const initialLoadDoneRef = React.useRef(false);
-    // Ref to track the current ETag version
-    const lastEtagRef = React.useRef<string | null>(null);
+    // Ref to track the current Version
+    const lastVersionRef = React.useRef<string | null>(null);
 
     // Load function (extracted to allow invalidation)
     const loadFromServer = useCallback(async () => {
         try {
-            const { sets, etag } = await fetchTemplateSets();
+            const { sets, version } = await fetchTemplateSets();
             setTemplateSets(sets);
-            lastEtagRef.current = etag;
+            lastVersionRef.current = version;
 
             if (sets.length > 0 && !selectedSetId) {
                 setSelectedSetId(sets[0].id);
             }
-            console.log('[TemplateSet] Loaded from server:', sets.length, 'sets. ETag:', etag);
+            console.log('[TemplateSet] Loaded from server:', sets.length, 'sets. Version:', version);
         } catch (error) {
             console.error('[TemplateSet] Failed to load:', error);
         } finally {
@@ -122,18 +122,18 @@ export default function ProductOnWhitePage() {
             return;
         }
 
-        console.log('[TemplateSet] Saving', sets.length, 'sets to server. Version:', lastEtagRef.current);
+        console.log('[TemplateSet] Saving', sets.length, 'sets to server. Version:', lastVersionRef.current);
 
         setIsSaving(true);
         try {
-            const result = await saveTemplateSetsToServer(sets, lastEtagRef.current);
+            const result = await saveTemplateSetsToServer(sets, lastVersionRef.current);
 
             if (result.success) {
                 setLastSaved(new Date());
-                if (result.newEtag) {
-                    lastEtagRef.current = result.newEtag;
+                if (result.newVersion) {
+                    lastVersionRef.current = result.newVersion;
                 }
-                console.log('[TemplateSet] Save completed successfully. New Version:', result.newEtag);
+                console.log('[TemplateSet] Save completed successfully. New Version:', result.newVersion);
             } else if (result.status === 409 || result.status === 428) {
                 console.warn('[TemplateSet] Data conflict detected (Status ' + result.status + '). Reloading...');
                 alert('Another session updated the templates. Reloading data...');

@@ -81,7 +81,7 @@ export async function GET() {
 
             const response = NextResponse.json([defaultSet]);
             response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
-            response.headers.set('ETag', '1');
+            response.headers.set('X-Version', '1');
             return response;
         }
 
@@ -89,10 +89,10 @@ export async function GET() {
         const response = NextResponse.json(templateSets);
         response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
         if (version) {
-            response.headers.set('ETag', version);
+            response.headers.set('X-Version', version);
         } else {
             // If data exists but version missing (migration), treat as version 1
-            response.headers.set('ETag', '1');
+            response.headers.set('X-Version', '1');
         }
         return response;
     } catch (error) {
@@ -102,7 +102,7 @@ export async function GET() {
             console.warn('[GET /api/templates] Redis not configured, returning default data');
             const defaultSet = getDefaultTemplateSet();
             const response = NextResponse.json([defaultSet]);
-            response.headers.set('ETag', '1');
+            response.headers.set('X-Version', '1');
             return response;
         }
         return NextResponse.json(
@@ -165,7 +165,7 @@ export async function POST(request: Request) {
                 // Success
                 console.log(`[POST /api/templates] Successfully created set via CAS (Attempt ${attempts})`);
                 const response = NextResponse.json(newSet, { status: 201 });
-                response.headers.set('ETag', String(result));
+                response.headers.set('X-Version', String(result));
                 return response;
             }
 
@@ -193,13 +193,11 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
     try {
         const templateSets: TemplateSet[] = await request.json();
-        const ifMatch = request.headers.get('If-Match');
+        const clientVersion = request.headers.get('X-Version');
 
-        // Enforce If-Match
-        if (!ifMatch) {
-            console.warn('[PUT /api/templates] Missing If-Match header');
-            // If checking persistence manually with curl without header, this will fail.
-            // But browser will be updated to send it.
+        // Enforce Version Check
+        if (!clientVersion) {
+            console.warn('[PUT /api/templates] Missing X-Version header');
             return NextResponse.json(
                 { error: 'Precondition Required: Please refresh the page.' },
                 { status: 428 }
@@ -207,7 +205,7 @@ export async function PUT(request: Request) {
         }
 
         // Debug
-        console.log('[PUT /api/templates] Received data to save for version:', ifMatch);
+        console.log('[PUT /api/templates] Received data to save for version:', clientVersion);
         console.log(`[PUT /api/templates]   Total sets: ${templateSets.length}`);
 
         // Update timestamps
@@ -221,13 +219,13 @@ export async function PUT(request: Request) {
         const result = await redis.eval(
             CAS_SCRIPT,
             [VERSION_KEY, TEMPLATES_KEY],
-            [ifMatch, updatedSets]
+            [clientVersion, updatedSets]
         );
 
         console.log('[PUT /api/templates] Redis eval result:', result);
 
         if (result === -1) {
-            console.warn('[PUT /api/templates] Conflict detected. Client version:', ifMatch);
+            console.warn('[PUT /api/templates] Conflict detected. Client version:', clientVersion);
             return NextResponse.json(
                 { error: 'Conflict: Data has changed on server. Please refresh.' },
                 { status: 409 }
@@ -239,7 +237,7 @@ export async function PUT(request: Request) {
 
         const response = NextResponse.json(updatedSets);
         response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
-        response.headers.set('ETag', newVersion);
+        response.headers.set('X-Version', newVersion);
         return response;
     } catch (error) {
         console.error('[PUT /api/templates] Error:', error);
