@@ -10,75 +10,43 @@ import OutputSettings from '@/components/product-on-white/OutputSettings';
 import GenerationResults from '@/components/product-on-white/GenerationResults';
 import { TemplateSet, ImageTemplate, OutputSettings as OutputSettingsType, GeneratedImage } from '@/types';
 
-// Storage key for template sets
-const STORAGE_KEY = 'charlee-girl-template-sets';
-
-// Default starter template set
-const createDefaultTemplateSet = (): TemplateSet => ({
-    id: 'lifeguard-hat',
-    name: 'Lifeguard Straw Hat',
-    icon: '🎩',
-    templates: [
-        {
-            id: 'hat-front',
-            name: 'Front View',
-            templateImageUrl: '',
-            basePrompt: 'This is a product photo of a lifeguard-style straw hat on a white background. Apply the pattern from the reference image to the under-brim fabric of the hat, keeping all other elements identical including the straw weave texture, leather patch, and drawstring.',
-            sortOrder: 0,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-        },
-        {
-            id: 'hat-side',
-            name: 'Side View',
-            templateImageUrl: '',
-            basePrompt: 'This is a side view product photo of a lifeguard-style straw hat on a white background. Apply the pattern from the reference image to the visible under-brim fabric of the hat, keeping all other elements identical.',
-            sortOrder: 1,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-        },
-    ],
-    sortOrder: 0,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-});
-
-// Load template sets from localStorage
-const loadTemplateSets = (): TemplateSet[] => {
-    if (typeof window === 'undefined') return [createDefaultTemplateSet()];
-
+// API functions for server-side persistence
+const fetchTemplateSets = async (): Promise<TemplateSet[]> => {
     try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) {
-            const parsed = JSON.parse(stored);
-            // Convert date strings back to Date objects
-            return parsed.map((set: TemplateSet) => ({
-                ...set,
-                createdAt: new Date(set.createdAt),
-                updatedAt: new Date(set.updatedAt),
-                templates: set.templates.map((t: ImageTemplate) => ({
-                    ...t,
-                    createdAt: new Date(t.createdAt),
-                    updatedAt: new Date(t.updatedAt),
-                })),
-            }));
-        }
-    } catch (e) {
-        console.error('Failed to load template sets:', e);
-    }
-
-    return [createDefaultTemplateSet()];
-};
-
-// Save template sets to localStorage
-const saveTemplateSets = (sets: TemplateSet[]) => {
-    if (typeof window === 'undefined') return;
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(sets));
-    } catch (e) {
-        console.error('Failed to save template sets:', e);
+        const response = await fetch('/api/templates');
+        if (!response.ok) throw new Error('Failed to fetch templates');
+        const data = await response.json();
+        // Convert date strings to Date objects
+        return data.map((set: TemplateSet) => ({
+            ...set,
+            createdAt: new Date(set.createdAt),
+            updatedAt: new Date(set.updatedAt),
+            templates: set.templates.map((t: ImageTemplate) => ({
+                ...t,
+                createdAt: new Date(t.createdAt),
+                updatedAt: new Date(t.updatedAt),
+            })),
+        }));
+    } catch (error) {
+        console.error('Failed to fetch template sets:', error);
+        return [];
     }
 };
+
+const saveTemplateSetsToServer = async (sets: TemplateSet[]): Promise<boolean> => {
+    try {
+        const response = await fetch('/api/templates', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(sets),
+        });
+        return response.ok;
+    } catch (error) {
+        console.error('Failed to save template sets:', error);
+        return false;
+    }
+};
+
 
 type WorkflowStep = 'setup' | 'generating' | 'results';
 
@@ -97,30 +65,50 @@ export default function ProductOnWhitePage() {
     const [isGenerating, setIsGenerating] = useState(false);
     const [isLoaded, setIsLoaded] = useState(false);
     const [lastSaved, setLastSaved] = useState<Date | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
 
-    // Load on mount
+    // Load on mount from server
     useEffect(() => {
-        const sets = loadTemplateSets();
-        setTemplateSets(sets);
-        if (sets.length > 0) {
-            setSelectedSetId(sets[0].id);
-        }
-        setIsLoaded(true);
-        console.log('[TemplateSet] Loaded from localStorage:', sets.length, 'sets');
+        const loadFromServer = async () => {
+            try {
+                const sets = await fetchTemplateSets();
+                setTemplateSets(sets);
+                if (sets.length > 0) {
+                    setSelectedSetId(sets[0].id);
+                }
+                console.log('[TemplateSet] Loaded from server:', sets.length, 'sets');
+            } catch (error) {
+                console.error('[TemplateSet] Failed to load:', error);
+            } finally {
+                setIsLoaded(true);
+            }
+        };
+        loadFromServer();
     }, []);
 
-    // Save when template sets change (always save after initial load)
+    // Save when template sets change (debounced)
     useEffect(() => {
-        if (isLoaded) {
+        if (!isLoaded || isSaving) return;
+
+        const saveToServer = async () => {
+            setIsSaving(true);
             try {
-                saveTemplateSets(templateSets);
-                setLastSaved(new Date());
-                console.log('[TemplateSet] Saved to localStorage:', templateSets.length, 'sets');
+                const success = await saveTemplateSetsToServer(templateSets);
+                if (success) {
+                    setLastSaved(new Date());
+                    console.log('[TemplateSet] Saved to server:', templateSets.length, 'sets');
+                }
             } catch (error) {
                 console.error('[TemplateSet] Failed to save:', error);
+            } finally {
+                setIsSaving(false);
             }
-        }
-    }, [templateSets, isLoaded]);
+        };
+
+        // Debounce saves to avoid too many requests
+        const timeoutId = setTimeout(saveToServer, 500);
+        return () => clearTimeout(timeoutId);
+    }, [templateSets, isLoaded, isSaving]);
 
     const selectedSet = templateSets.find(s => s.id === selectedSetId);
     const templates = selectedSet?.templates || [];
