@@ -265,10 +265,10 @@ export default function ProductOnWhitePage() {
                 // Create FormData for the API call
                 const formData = new FormData();
 
-                // Get template image - need to convert base64 or URL to File
-                let templateFile: File;
+                // Get template image - pass URL directly if available to save bandwidth
+                // Only use File if we have a base64 string (legacy/local)
                 if (template.templateImageBase64) {
-                    // Convert base64 to File
+                    // Convert base64 to File (Legacy path)
                     const base64Data = template.templateImageBase64.split(',')[1] || template.templateImageBase64;
                     const mimeType = template.templateImageBase64.split(';')[0]?.split(':')[1] || 'image/png';
                     const byteCharacters = atob(base64Data);
@@ -278,17 +278,15 @@ export default function ProductOnWhitePage() {
                     }
                     const byteArray = new Uint8Array(byteNumbers);
                     const blob = new Blob([byteArray], { type: mimeType });
-                    templateFile = new File([blob], `template-${template.id}.png`, { type: mimeType });
+                    const templateFile = new File([blob], `template-${template.id}.png`, { type: mimeType });
+                    formData.append('template', templateFile);
                 } else if (template.templateImageUrl) {
-                    // Fetch the image from URL and convert to File
-                    const response = await fetch(template.templateImageUrl);
-                    const blob = await response.blob();
-                    templateFile = new File([blob], `template-${template.id}.png`, { type: blob.type });
+                    // NEW PATH: Send the URL string directly!
+                    // This avoids downloading and re-uploading the file, preventing payload limits.
+                    formData.append('template', template.templateImageUrl);
                 } else {
                     throw new Error(`Template ${template.name} has no image`);
                 }
-
-                formData.append('template', templateFile);
                 formData.append('pattern', patternImage);
                 formData.append('prompt', fullPrompt);
                 formData.append('aspectRatio', outputSettings.aspectRatio);

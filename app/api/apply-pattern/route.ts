@@ -30,38 +30,61 @@ export async function POST(req: NextRequest) {
         const fields = Array.from(formData.keys());
         console.log('FormData fields received:', fields);
 
-        const templateImage = formData.get('template') as File;
+        const templateInput = formData.get('template');
+        const templateImageFile = templateInput instanceof File ? templateInput : null;
+        const templateImageUrl = typeof templateInput === 'string' ? templateInput : null;
+
         const patternImage = formData.get('pattern') as File;
         const userPrompt = formData.get('prompt') as string || '';
         const aspectRatio = formData.get('aspectRatio') as string || '1:1';
         const size = formData.get('size') as string || '2k';
 
-        console.log('Template image:', templateImage ? `${templateImage.name} (${templateImage.size} bytes)` : 'missing');
-        console.log('Pattern image:', patternImage ? `${patternImage.name} (${patternImage.size} bytes)` : 'missing');
-
         // Validate inputs
-        if (!templateImage || !patternImage) {
+        if ((!templateImageFile && !templateImageUrl) || !patternImage) {
             return NextResponse.json(
                 {
-                    error: 'Both template and pattern images are required',
+                    error: 'Template (file or URL) and pattern image are required',
                     receivedFields: fields,
-                    templateReceived: !!templateImage,
+                    templateReceived: !!templateInput,
                     patternReceived: !!patternImage
                 },
                 { status: 400 }
             );
         }
 
-        // Convert template image to base64
-        const templateBytes = await templateImage.arrayBuffer();
-        const templateBase64 = Buffer.from(templateBytes).toString('base64');
+        // Processing Template Image
+        let templateBase64: string;
+        let templateMimeType: string;
+
+        if (templateImageFile) {
+            console.log(`Processing template from File: ${templateImageFile.name} (${templateImageFile.size} bytes)`);
+            const templateBytes = await templateImageFile.arrayBuffer();
+            templateBase64 = Buffer.from(templateBytes).toString('base64');
+            templateMimeType = templateImageFile.type;
+        } else if (templateImageUrl) {
+            console.log(`Processing template from URL: ${templateImageUrl}`);
+            // Fetch the image from the URL
+            const urlResponse = await fetch(templateImageUrl);
+            if (!urlResponse.ok) {
+                throw new Error(`Failed to fetch template image from URL: ${urlResponse.statusText}`);
+            }
+            const templateBlob = await urlResponse.blob();
+            const templateBytes = await templateBlob.arrayBuffer();
+            templateBase64 = Buffer.from(templateBytes).toString('base64');
+            templateMimeType = templateBlob.type || 'image/png'; // Fallback if type missing
+        } else {
+            throw new Error('No template provided');
+        }
 
         // Convert pattern image to base64
         const patternBytes = await patternImage.arrayBuffer();
         const patternBase64 = Buffer.from(patternBytes).toString('base64');
 
         console.log('Processing images:', {
-            template: { size: templateBytes.byteLength, type: templateImage.type },
+            template: {
+                source: templateImageFile ? 'file' : 'url',
+                type: templateMimeType
+            },
             pattern: { size: patternBytes.byteLength, type: patternImage.type }
         });
 
@@ -86,7 +109,7 @@ export async function POST(req: NextRequest) {
                     { text: 'TEMPLATE IMAGE:' },
                     {
                         inlineData: {
-                            mimeType: templateImage.type,
+                            mimeType: templateMimeType,
                             data: templateBase64
                         }
                     },
