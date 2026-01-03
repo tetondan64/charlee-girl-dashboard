@@ -189,11 +189,21 @@ export default function ProductOnWhitePage() {
     const handleGenerate = async () => {
         if (!patternImage || !selectedSet) return;
 
+        // Filter to only templates with images
+        const validTemplates = templates.filter(t =>
+            t.templateImageBase64 || (t.templateImageUrl && !t.templateImageUrl.startsWith('blob:'))
+        );
+
+        if (validTemplates.length === 0) {
+            alert('No templates have images. Please add images to your templates first.');
+            return;
+        }
+
         setIsGenerating(true);
         setWorkflowStep('generating');
 
         // Initialize all images as pending
-        const initialImages: GeneratedImage[] = templates.map(template => ({
+        const initialImages: GeneratedImage[] = validTemplates.map(template => ({
             id: `gen-${template.id}-${Date.now()}`,
             sessionId: `session-${Date.now()}`,
             imageTypeId: template.id,
@@ -209,8 +219,8 @@ export default function ProductOnWhitePage() {
         setGeneratedImages(initialImages);
 
         // Process each template with the real API
-        for (let i = 0; i < templates.length; i++) {
-            const template = templates[i];
+        for (let i = 0; i < validTemplates.length; i++) {
+            const template = validTemplates[i];
             const imageId = initialImages[i].id;
 
             // Update status to generating
@@ -346,7 +356,12 @@ export default function ProductOnWhitePage() {
         setGeneratedImages([]);
     };
 
-    const canGenerate = patternImage && patternName.trim() && templates.length > 0;
+    // Count templates that have valid images
+    const templatesWithImages = templates.filter(t =>
+        t.templateImageBase64 || (t.templateImageUrl && !t.templateImageUrl.startsWith('blob:'))
+    );
+    const readyToGenerate = templatesWithImages.length;
+    const canGenerate = patternImage && patternName.trim() && readyToGenerate > 0;
 
     if (!isLoaded) {
         return (
@@ -470,15 +485,16 @@ export default function ProductOnWhitePage() {
                                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                             <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
                                         </svg>
-                                        Generate All Images ({templates.length})
+                                        Generate All Images ({readyToGenerate}{templates.length > readyToGenerate ? ` of ${templates.length}` : ''})
                                     </>
                                 )}
                             </button>
                             {!canGenerate && (
                                 <p className={styles.generateHint}>
                                     {templates.length === 0 && 'Add templates to your product type first'}
-                                    {templates.length > 0 && !patternImage && 'Upload a pattern image to continue'}
-                                    {templates.length > 0 && patternImage && !patternName.trim() && 'Enter a pattern name'}
+                                    {templates.length > 0 && readyToGenerate === 0 && 'Upload images for your templates first - click "Add New" and upload a photo'}
+                                    {readyToGenerate > 0 && !patternImage && 'Upload a pattern image to continue'}
+                                    {readyToGenerate > 0 && patternImage && !patternName.trim() && 'Enter a pattern name'}
                                 </p>
                             )}
                         </div>
