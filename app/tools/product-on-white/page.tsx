@@ -67,6 +67,9 @@ export default function ProductOnWhitePage() {
     const [lastSaved, setLastSaved] = useState<Date | null>(null);
     const [isSaving, setIsSaving] = useState(false);
 
+    // Ref to track if initial load is complete (to prevent saving during load)
+    const initialLoadDoneRef = React.useRef(false);
+
     // Load on mount from server
     useEffect(() => {
         const loadFromServer = async () => {
@@ -81,60 +84,41 @@ export default function ProductOnWhitePage() {
                 console.error('[TemplateSet] Failed to load:', error);
             } finally {
                 setIsLoaded(true);
+                initialLoadDoneRef.current = true; // Enable saving after load
             }
         };
         loadFromServer();
     }, []);
 
-    // Track if we just did an immediate save (to skip debounced save)
-    const justSavedRef = React.useRef(false);
-
-    // Keep a ref to the current templateSets to avoid stale closures
-    const templateSetsRef = React.useRef(templateSets);
-    useEffect(() => {
-        templateSetsRef.current = templateSets;
-    }, [templateSets]);
-
-    // Save when template sets change (debounced) - only trigger debounce, actual save reads from ref
-    useEffect(() => {
-        if (!isLoaded) return;
-        // Skip if we just did an immediate save
-        if (justSavedRef.current) {
-            justSavedRef.current = false;
-            console.log('[TemplateSet] Skipping debounced save (just did immediate save)');
+    // Simple save function - always saves the provided data immediately
+    const saveToServer = useCallback(async (sets: TemplateSet[]) => {
+        // Don't save during initial load
+        if (!initialLoadDoneRef.current) {
+            console.log('[TemplateSet] Skipping save (initial load not done)');
             return;
         }
 
-        const saveToServer = async () => {
-            if (isSaving) {
-                console.log('[TemplateSet] Skipping debounced save (already saving)');
-                return; // Don't overlap with other saves
-            }
-            // Use ref to get CURRENT value, not stale closure value
-            const currentSets = templateSetsRef.current;
-            console.log('[TemplateSet] Debounced save starting with', currentSets.length, 'sets');
-            currentSets.forEach((set, i) => {
-                console.log(`[TemplateSet]   Set ${i}: "${set.name}" with ${set.templates?.length || 0} templates`);
+        console.log('[TemplateSet] Saving', sets.length, 'sets to server');
+        sets.forEach((set, i) => {
+            console.log(`[TemplateSet]   Set ${i}: "${set.name}" with ${set.templates?.length || 0} templates`);
+            set.templates?.forEach((t, j) => {
+                console.log(`[TemplateSet]     Template ${j}: "${t.name}" (id: ${t.id})`);
             });
+        });
 
-            setIsSaving(true);
-            try {
-                const success = await saveTemplateSetsToServer(currentSets);
-                if (success) {
-                    setLastSaved(new Date());
-                    console.log('[TemplateSet] Debounced save completed successfully');
-                }
-            } catch (error) {
-                console.error('[TemplateSet] Failed to save:', error);
-            } finally {
-                setIsSaving(false);
+        setIsSaving(true);
+        try {
+            const success = await saveTemplateSetsToServer(sets);
+            if (success) {
+                setLastSaved(new Date());
+                console.log('[TemplateSet] Save completed successfully');
             }
-        };
-
-        // Debounce saves to avoid too many requests
-        const timeoutId = setTimeout(saveToServer, 1000);
-        return () => clearTimeout(timeoutId);
-    }, [templateSets, isLoaded]); // Trigger on changes, but read from ref
+        } catch (error) {
+            console.error('[TemplateSet] Failed to save:', error);
+        } finally {
+            setIsSaving(false);
+        }
+    }, []);
 
     const selectedSet = templateSets.find(s => s.id === selectedSetId);
     const templates = selectedSet?.templates || [];
@@ -150,43 +134,31 @@ export default function ProductOnWhitePage() {
             createdAt: new Date(),
             updatedAt: new Date(),
         };
-        setTemplateSets(prev => [...prev, newSet]);
+        const newSets = [...templateSets, newSet];
+        setTemplateSets(newSets);
         setSelectedSetId(newSet.id);
-    }, [templateSets.length]);
+        saveToServer(newSets); // Save immediately after creating
+    }, [templateSets, saveToServer]);
 
     const handleDeleteSet = useCallback((setId: string) => {
-        setTemplateSets(prev => prev.filter(s => s.id !== setId));
+        const newSets = templateSets.filter(s => s.id !== setId);
+        setTemplateSets(newSets);
         if (selectedSetId === setId) {
-            const remaining = templateSets.filter(s => s.id !== setId);
-            setSelectedSetId(remaining[0]?.id || '');
+            setSelectedSetId(newSets[0]?.id || '');
         }
-    }, [selectedSetId, templateSets]);
+        saveToServer(newSets); // Save immediately after deleting
+    }, [selectedSetId, templateSets, saveToServer]);
 
     const handleRenameSet = useCallback((setId: string, newName: string) => {
-        setTemplateSets(prev => prev.map(s =>
+        const newSets = templateSets.map(s =>
             s.id === setId ? { ...s, name: newName, updatedAt: new Date() } : s
-        ));
-    }, []);
+        );
+        setTemplateSets(newSets);
+        saveToServer(newSets); // Save immediately after renaming
+    }, [templateSets, saveToServer]);
 
-    // Immediate save function (bypasses debounce for critical operations like delete)
-    const saveImmediately = useCallback(async (sets: TemplateSet[]) => {
-        justSavedRef.current = true; // Prevent debounced save from running
-        setIsSaving(true);
-        try {
-            const success = await saveTemplateSetsToServer(sets);
-            if (success) {
-                setLastSaved(new Date());
-                console.log('[TemplateSet] Saved immediately to server');
-            }
-        } catch (error) {
-            console.error('[TemplateSet] Failed to save:', error);
-        } finally {
-            setIsSaving(false);
-        }
-    }, []);
-
-    // Template management within the current set
-    const handleTemplatesChange = useCallback((newTemplates: ImageTemplate[], saveNow: boolean = false) => {
+    // Template management within the current set - ALWAYS saves after changes
+    const handleTemplatesChange = useCallback((newTemplates: ImageTemplate[], _saveNow: boolean = false) => {
         const updatedSets = templateSets.map(s =>
             s.id === selectedSetId
                 ? { ...s, templates: newTemplates, updatedAt: new Date() }
@@ -194,11 +166,9 @@ export default function ProductOnWhitePage() {
         );
         setTemplateSets(updatedSets);
 
-        // If saveNow is true (e.g., for deletions), save immediately
-        if (saveNow) {
-            saveImmediately(updatedSets);
-        }
-    }, [selectedSetId, templateSets, saveImmediately]);
+        // Always save after template changes
+        saveToServer(updatedSets);
+    }, [selectedSetId, templateSets, saveToServer]);
 
     const handlePatternUpload = useCallback((file: File) => {
         setPatternImage(file);
