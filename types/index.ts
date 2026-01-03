@@ -59,6 +59,7 @@ export interface GeneratedImage {
     refinements: Refinement[];
     apiCost: number;
     createdAt: Date;
+    errorMessage?: string;
 }
 
 export interface Refinement {

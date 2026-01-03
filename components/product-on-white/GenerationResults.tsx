@@ -139,14 +139,27 @@ export default function GenerationResults({
                                                 <path d="m9 9 6 6" />
                                             </svg>
                                             <span>Failed</span>
+                                            {image.errorMessage && (
+                                                <span className={styles.errorMessage} title={image.errorMessage}>
+                                                    {image.errorMessage.length > 30 ? image.errorMessage.substring(0, 30) + '...' : image.errorMessage}
+                                                </span>
+                                            )}
                                         </div>
                                     ) : (
-                                        <div className={styles.imagePlaceholder}>
-                                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
-                                            </svg>
-                                            <span>Generated</span>
-                                        </div>
+                                        image.generatedImageUrl ? (
+                                            <img
+                                                src={image.generatedImageUrl}
+                                                alt={`Generated ${getTemplateName(image.imageTypeId)}`}
+                                                className={styles.generatedImage}
+                                            />
+                                        ) : (
+                                            <div className={styles.imagePlaceholder}>
+                                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
+                                                </svg>
+                                                <span>Generated</span>
+                                            </div>
+                                        )
                                     )}
                                 </div>
                             </div>

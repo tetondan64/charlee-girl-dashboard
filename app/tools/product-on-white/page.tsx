@@ -334,6 +334,7 @@ export default function ProductOnWhitePage() {
                             ? {
                                 ...img,
                                 status: 'failed' as const,
+                                errorMessage: error instanceof Error ? error.message : 'Unknown error occurred',
                             }
                             : img
                     )
