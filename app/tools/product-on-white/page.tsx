@@ -86,17 +86,26 @@ export default function ProductOnWhitePage() {
         loadFromServer();
     }, []);
 
+    // Track if we just did an immediate save (to skip debounced save)
+    const justSavedRef = React.useRef(false);
+
     // Save when template sets change (debounced)
     useEffect(() => {
-        if (!isLoaded || isSaving) return;
+        if (!isLoaded) return;
+        // Skip if we just did an immediate save
+        if (justSavedRef.current) {
+            justSavedRef.current = false;
+            return;
+        }
 
         const saveToServer = async () => {
+            if (isSaving) return; // Don't overlap with other saves
             setIsSaving(true);
             try {
                 const success = await saveTemplateSetsToServer(templateSets);
                 if (success) {
                     setLastSaved(new Date());
-                    console.log('[TemplateSet] Saved to server:', templateSets.length, 'sets');
+                    console.log('[TemplateSet] Debounced save to server:', templateSets.length, 'sets');
                 }
             } catch (error) {
                 console.error('[TemplateSet] Failed to save:', error);
@@ -106,9 +115,9 @@ export default function ProductOnWhitePage() {
         };
 
         // Debounce saves to avoid too many requests
-        const timeoutId = setTimeout(saveToServer, 500);
+        const timeoutId = setTimeout(saveToServer, 1000);
         return () => clearTimeout(timeoutId);
-    }, [templateSets, isLoaded, isSaving]);
+    }, [templateSets, isLoaded]); // Removed isSaving from deps to prevent re-triggering
 
     const selectedSet = templateSets.find(s => s.id === selectedSetId);
     const templates = selectedSet?.templates || [];
@@ -144,6 +153,7 @@ export default function ProductOnWhitePage() {
 
     // Immediate save function (bypasses debounce for critical operations like delete)
     const saveImmediately = useCallback(async (sets: TemplateSet[]) => {
+        justSavedRef.current = true; // Prevent debounced save from running
         setIsSaving(true);
         try {
             const success = await saveTemplateSetsToServer(sets);
