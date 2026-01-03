@@ -72,7 +72,8 @@ export default function SessionDetailsModal({
                         <div className={styles.metadataItem}>
                             <h4>Output Settings</h4>
                             <div className={styles.metadataValue}>
-                                {session.outputSettings.width}x{session.outputSettings.height} • {session.outputSettings.format.toUpperCase()}
+                                {session.outputSettings?.width ? `${session.outputSettings.width}x${session.outputSettings.height} • ` : ''}
+                                {session.outputSettings?.format ? session.outputSettings.format.toUpperCase() : (session.outputSettings?.size || 'Unknown')}
                             </div>
                         </div>
                     </div>
