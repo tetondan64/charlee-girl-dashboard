@@ -7,16 +7,45 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 export async function POST(req: NextRequest) {
     try {
+        // Log the incoming request content type for debugging
+        const contentType = req.headers.get('content-type');
+        console.log('Incoming request content-type:', contentType);
+
+        // Check if content-type is multipart/form-data
+        if (!contentType || !contentType.includes('multipart/form-data')) {
+            console.log('Invalid content type received:', contentType);
+            return NextResponse.json(
+                {
+                    error: 'Request must be multipart/form-data',
+                    receivedContentType: contentType || 'none'
+                },
+                { status: 400 }
+            );
+        }
+
         // Parse the multipart form data
         const formData = await req.formData();
+
+        // Log what fields we received
+        const fields = Array.from(formData.keys());
+        console.log('FormData fields received:', fields);
+
         const clothingImage = formData.get('clothing') as File;
         const patternImage = formData.get('pattern') as File;
         const userPrompt = formData.get('prompt') as string || '';
 
+        console.log('Clothing image:', clothingImage ? `${clothingImage.name} (${clothingImage.size} bytes)` : 'missing');
+        console.log('Pattern image:', patternImage ? `${patternImage.name} (${patternImage.size} bytes)` : 'missing');
+
         // Validate inputs
         if (!clothingImage || !patternImage) {
             return NextResponse.json(
-                { error: 'Both clothing and pattern images are required' },
+                {
+                    error: 'Both clothing and pattern images are required',
+                    receivedFields: fields,
+                    clothingReceived: !!clothingImage,
+                    patternReceived: !!patternImage
+                },
                 { status: 400 }
             );
         }
