@@ -285,6 +285,8 @@ export default function TemplateGrid({
                                     e.preventDefault();
                                     if (!newTemplateImage) return;
 
+                                    const form = e.currentTarget; // Capture form reference before async await
+
                                     setIsUploading(true);
                                     try {
                                         // Upload to Vercel Blob
@@ -293,7 +295,7 @@ export default function TemplateGrid({
                                             handleUploadUrl: '/api/upload',
                                         });
 
-                                        const formData = new FormData(e.currentTarget);
+                                        const formData = new FormData(form);
                                         handleAddTemplate({
                                             name: formData.get('name') as string,
                                             templateImageUrl: blob.url,
