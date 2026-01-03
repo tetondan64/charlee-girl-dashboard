@@ -1,8 +1,12 @@
-'use server';
-
-import { kv } from '@vercel/kv';
+import { Redis } from '@upstash/redis';
 import { NextResponse } from 'next/server';
 import { TemplateSet } from '@/types';
+
+// Initialize Redis client
+const redis = new Redis({
+    url: process.env.UPSTASH_REDIS_REST_URL!,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+});
 
 const TEMPLATES_KEY = 'charlee-girl-template-sets';
 
@@ -41,21 +45,21 @@ function getDefaultTemplateSet(): TemplateSet {
 // GET - Fetch all template sets
 export async function GET() {
     try {
-        const templateSets = await kv.get<TemplateSet[]>(TEMPLATES_KEY);
+        const templateSets = await redis.get<TemplateSet[]>(TEMPLATES_KEY);
 
         if (!templateSets || templateSets.length === 0) {
             // Return default template set if none exist
             const defaultSet = getDefaultTemplateSet();
-            await kv.set(TEMPLATES_KEY, [defaultSet]);
+            await redis.set(TEMPLATES_KEY, [defaultSet]);
             return NextResponse.json([defaultSet]);
         }
 
         return NextResponse.json(templateSets);
     } catch (error) {
         console.error('Error fetching template sets:', error);
-        // If KV is not configured, return mock data
-        if (error instanceof Error && error.message.includes('KV')) {
-            console.warn('Vercel KV not configured, returning default data');
+        // If Redis is not configured, return default data
+        if (error instanceof Error && (error.message.includes('UPSTASH') || error.message.includes('Redis'))) {
+            console.warn('Upstash Redis not configured, returning default data');
             return NextResponse.json([getDefaultTemplateSet()]);
         }
         return NextResponse.json(
@@ -75,9 +79,9 @@ export async function POST(request: Request) {
         newSet.updatedAt = new Date();
         newSet.id = newSet.id || `set-${Date.now()}`;
 
-        const templateSets = await kv.get<TemplateSet[]>(TEMPLATES_KEY) || [];
+        const templateSets = await redis.get<TemplateSet[]>(TEMPLATES_KEY) || [];
         templateSets.push(newSet);
-        await kv.set(TEMPLATES_KEY, templateSets);
+        await redis.set(TEMPLATES_KEY, templateSets);
 
         return NextResponse.json(newSet, { status: 201 });
     } catch (error) {
@@ -100,7 +104,7 @@ export async function PUT(request: Request) {
             updatedAt: new Date(),
         }));
 
-        await kv.set(TEMPLATES_KEY, updatedSets);
+        await redis.set(TEMPLATES_KEY, updatedSets);
 
         return NextResponse.json(updatedSets);
     } catch (error) {
@@ -125,9 +129,9 @@ export async function DELETE(request: Request) {
             );
         }
 
-        const templateSets = await kv.get<TemplateSet[]>(TEMPLATES_KEY) || [];
+        const templateSets = await redis.get<TemplateSet[]>(TEMPLATES_KEY) || [];
         const filteredSets = templateSets.filter(set => set.id !== setId);
-        await kv.set(TEMPLATES_KEY, filteredSets);
+        await redis.set(TEMPLATES_KEY, filteredSets);
 
         return NextResponse.json({ success: true });
     } catch (error) {
