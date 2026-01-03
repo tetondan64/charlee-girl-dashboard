@@ -83,6 +83,18 @@
     color: var(--text-muted);
 }
 
+.savedIndicator {
+    display: inline-flex;
+    align-items: center;
+    margin-left: var(--spacing-sm);
+    padding: 2px 8px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    background: rgba(115, 141, 104, 0.15);
+    color: var(--sage-green);
+    border-radius: var(--radius-full);
+}
+
 .row {
     display: grid;
     grid-template-columns: 1fr 1.5fr;

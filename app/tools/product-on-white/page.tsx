@@ -96,6 +96,7 @@ export default function ProductOnWhitePage() {
     const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
     const [isGenerating, setIsGenerating] = useState(false);
     const [isLoaded, setIsLoaded] = useState(false);
+    const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
     // Load on mount
     useEffect(() => {
@@ -105,12 +106,19 @@ export default function ProductOnWhitePage() {
             setSelectedSetId(sets[0].id);
         }
         setIsLoaded(true);
+        console.log('[TemplateSet] Loaded from localStorage:', sets.length, 'sets');
     }, []);
 
-    // Save when template sets change
+    // Save when template sets change (always save after initial load)
     useEffect(() => {
-        if (isLoaded && templateSets.length > 0) {
-            saveTemplateSets(templateSets);
+        if (isLoaded) {
+            try {
+                saveTemplateSets(templateSets);
+                setLastSaved(new Date());
+                console.log('[TemplateSet] Saved to localStorage:', templateSets.length, 'sets');
+            } catch (error) {
+                console.error('[TemplateSet] Failed to save:', error);
+            }
         }
     }, [templateSets, isLoaded]);
 
@@ -308,6 +316,11 @@ export default function ProductOnWhitePage() {
                                     <h2 className={styles.sectionTitle}>Manage Templates & Customize Prompts</h2>
                                     <p className={styles.sectionDescription}>
                                         Add templates to &quot;{selectedSet?.name || 'your product type'}&quot; and customize prompts
+                                        {lastSaved && (
+                                            <span className={styles.savedIndicator}>
+                                                ✓ Auto-saved
+                                            </span>
+                                        )}
                                     </p>
                                 </div>
                             </div>
