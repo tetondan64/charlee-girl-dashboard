@@ -288,9 +288,11 @@ export default function ProductOnWhitePage() {
                     throw new Error(`Template ${template.name} has no image`);
                 }
 
-                formData.append('clothing', templateFile);
+                formData.append('template', templateFile);
                 formData.append('pattern', patternImage);
                 formData.append('prompt', fullPrompt);
+                formData.append('aspectRatio', outputSettings.aspectRatio);
+                formData.append('size', outputSettings.size);
 
                 console.log(`[Generate] Processing template: ${template.name}`);
 

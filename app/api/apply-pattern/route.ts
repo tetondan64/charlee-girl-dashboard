@@ -30,36 +30,38 @@ export async function POST(req: NextRequest) {
         const fields = Array.from(formData.keys());
         console.log('FormData fields received:', fields);
 
-        const clothingImage = formData.get('clothing') as File;
+        const templateImage = formData.get('template') as File;
         const patternImage = formData.get('pattern') as File;
         const userPrompt = formData.get('prompt') as string || '';
+        const aspectRatio = formData.get('aspectRatio') as string || '1:1';
+        const size = formData.get('size') as string || '2k';
 
-        console.log('Clothing image:', clothingImage ? `${clothingImage.name} (${clothingImage.size} bytes)` : 'missing');
+        console.log('Template image:', templateImage ? `${templateImage.name} (${templateImage.size} bytes)` : 'missing');
         console.log('Pattern image:', patternImage ? `${patternImage.name} (${patternImage.size} bytes)` : 'missing');
 
         // Validate inputs
-        if (!clothingImage || !patternImage) {
+        if (!templateImage || !patternImage) {
             return NextResponse.json(
                 {
-                    error: 'Both clothing and pattern images are required',
+                    error: 'Both template and pattern images are required',
                     receivedFields: fields,
-                    clothingReceived: !!clothingImage,
+                    templateReceived: !!templateImage,
                     patternReceived: !!patternImage
                 },
                 { status: 400 }
             );
         }
 
-        // Convert clothing image to base64
-        const clothingBytes = await clothingImage.arrayBuffer();
-        const clothingBase64 = Buffer.from(clothingBytes).toString('base64');
+        // Convert template image to base64
+        const templateBytes = await templateImage.arrayBuffer();
+        const templateBase64 = Buffer.from(templateBytes).toString('base64');
 
         // Convert pattern image to base64
         const patternBytes = await patternImage.arrayBuffer();
         const patternBase64 = Buffer.from(patternBytes).toString('base64');
 
         console.log('Processing images:', {
-            clothing: { size: clothingBytes.byteLength, type: clothingImage.type },
+            template: { size: templateBytes.byteLength, type: templateImage.type },
             pattern: { size: patternBytes.byteLength, type: patternImage.type }
         });
 
@@ -67,12 +69,12 @@ export async function POST(req: NextRequest) {
         const model = genAI.getGenerativeModel({
             model: 'gemini-3-pro-image-preview',
             systemInstruction: `You are an expert fashion design AI specializing in realistic pattern application.
-                          When given a clothing item and a pattern:
-                          1. Apply the pattern to the clothing realistically
-                          2. Preserve the garment's shape, folds, shadows, and texture
-                          3. Make the pattern follow natural fabric contours
+                          When given a template item and a pattern:
+                          1. Apply the pattern to the template item realistically
+                          2. Preserve the item's shape, folds, shadows, and texture
+                          3. Make the pattern follow natural contours
                           4. Match lighting and color tone
-                          5. Maintain professional e-commerce photo quality
+                          5. Maintain professional product photo quality
                           6. Do not add any text, watermarks, or branding`
         });
 
@@ -81,11 +83,11 @@ export async function POST(req: NextRequest) {
             contents: [{
                 role: 'user',
                 parts: [
-                    { text: 'CLOTHING TEMPLATE IMAGE:' },
+                    { text: 'TEMPLATE IMAGE:' },
                     {
                         inlineData: {
-                            mimeType: clothingImage.type,
-                            data: clothingBase64
+                            mimeType: templateImage.type,
+                            data: templateBase64
                         }
                     },
                     { text: 'PATTERN TO APPLY:' },
@@ -96,14 +98,16 @@ export async function POST(req: NextRequest) {
                         }
                     },
                     {
-                        text: `TASK: Apply the pattern shown in the second image to the clothing item in the first image.
+                        text: `TASK: Apply the pattern shown in the second image to the template item in the first image.
 
                    Requirements:
-                   - The pattern must wrap around the garment naturally following folds and curves
-                   - Preserve all shadows, highlights, and fabric texture from the original clothing
-                   - Make it look like the pattern is printed on the fabric, not overlaid
+                   - The pattern must wrap around the item naturally following folds and curves
+                   - Preserve all shadows, highlights, and texture from the original template
+                   - Make it look like the pattern is applied to the material
                    - Maintain the same lighting conditions as the original photo
                    - Keep the background unchanged
+                   - Output Aspect Ratio: ${aspectRatio}
+                   - Target Resolution: ${size.toUpperCase()} (Ensure high quality details)
 
                    ${userPrompt ? `Additional instructions: ${userPrompt}` : ''}`
                     }
