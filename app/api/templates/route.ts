@@ -2,6 +2,10 @@ import { Redis } from '@upstash/redis';
 import { NextResponse } from 'next/server';
 import { TemplateSet } from '@/types';
 
+// Force dynamic rendering and disable all caching
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 // Initialize Redis client
 const redis = new Redis({
     url: process.env.UPSTASH_REDIS_REST_URL!,
