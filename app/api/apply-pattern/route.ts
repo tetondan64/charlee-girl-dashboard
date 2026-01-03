@@ -198,10 +198,13 @@ export async function POST(req: NextRequest) {
             dataLength: resultImage.data.length
         });
 
+        const sessionId = formData.get('sessionId') as string || 'unsorted';
+
         // Upload to Vercel Blob for permanent storage
         const imageBuffer = Buffer.from(resultImage.data, 'base64');
         const fileExtension = resultImage.mimeType?.includes('png') ? 'png' : 'jpg';
-        const fileName = `generated/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExtension}`;
+        // Organized path: active-sessions/{sessionId}/generated/{timestamp}.{ext}
+        const fileName = `active-sessions/${sessionId}/generated/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExtension}`;
 
         const blob = await put(fileName, imageBuffer, {
             access: 'public',

@@ -303,6 +303,7 @@ export default function ProductOnWhitePage() {
                 formData.append('prompt', fullPrompt);
                 formData.append('aspectRatio', outputSettings.aspectRatio);
                 formData.append('size', outputSettings.size);
+                formData.append('sessionId', sessionId);
 
                 console.log(`[Generate] Processing template: ${template.name}`);
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import styles from './SessionDetailsModal.module.css';
 import { GeneratedImage, GenerationSession } from '@/types';
 
@@ -19,6 +19,12 @@ export default function SessionDetailsModal({
     isOpen,
     onClose
 }: SessionDetailsModalProps) {
+    const [localSession, setLocalSession] = useState<HistoryItem | null>(session);
+
+    useEffect(() => {
+        setLocalSession(session);
+    }, [session]);
+
     useEffect(() => {
         if (isOpen) {
             document.body.style.overflow = 'hidden';
@@ -30,7 +36,31 @@ export default function SessionDetailsModal({
         };
     }, [isOpen]);
 
-    if (!isOpen || !session) return null;
+    const handleDeleteImage = async (imageId: string) => {
+        if (!localSession) return;
+        if (!confirm('Are you sure you want to delete this image? This cannot be undone.')) return;
+
+        // Optimistic update
+        const previousImages = localSession.images;
+        setLocalSession(prev => prev ? {
+            ...prev,
+            images: prev.images.filter(img => img.id !== imageId)
+        } : null);
+
+        try {
+            const res = await fetch(`/api/history?id=${localSession.id}&type=image&imageId=${imageId}`, {
+                method: 'DELETE'
+            });
+            if (!res.ok) throw new Error('Failed to delete');
+        } catch (error) {
+            console.error(error);
+            alert('Failed to delete image');
+            // Revert
+            setLocalSession(prev => prev ? { ...prev, images: previousImages } : null);
+        }
+    };
+
+    if (!isOpen || !localSession) return null;
 
     return (
         <div className={styles.overlay} onClick={onClose}>
@@ -39,7 +69,7 @@ export default function SessionDetailsModal({
                     <div className={styles.titleGroup}>
                         <h3 className={styles.title}>Session Details</h3>
                         <span className={styles.date}>
-                            {session.createdAt.toLocaleDateString()} at {session.createdAt.toLocaleTimeString()}
+                            {localSession.createdAt.toLocaleDateString()} at {localSession.createdAt.toLocaleTimeString()}
                         </span>
                     </div>
                     <button className={styles.closeButton} onClick={onClose}>×</button>
@@ -50,36 +80,36 @@ export default function SessionDetailsModal({
                         <div className={styles.metadataItem}>
                             <h4>Pattern</h4>
                             <div className={styles.metadataValue}>
-                                {session.patternImageUrl && (
+                                {localSession.patternImageUrl && (
                                     // eslint-disable-next-line @next/next/no-img-element
                                     <img
-                                        src={session.patternImageUrl}
+                                        src={localSession.patternImageUrl}
                                         alt="Pattern"
                                         className={styles.patternThumb}
                                     />
                                 )}
-                                <span>{session.patternName || 'Unknown Pattern'}</span>
+                                <span>{localSession.patternName || 'Unknown Pattern'}</span>
                             </div>
                         </div>
 
                         <div className={styles.metadataItem}>
                             <h4>Product Type</h4>
                             <div className={styles.metadataValue}>
-                                {session.productTypeId}
+                                {localSession.productTypeId}
                             </div>
                         </div>
 
                         <div className={styles.metadataItem}>
                             <h4>Output Settings</h4>
                             <div className={styles.metadataValue}>
-                                {session.outputSettings?.width ? `${session.outputSettings.width}x${session.outputSettings.height} • ` : ''}
-                                {session.outputSettings?.format ? session.outputSettings.format.toUpperCase() : (session.outputSettings?.size || 'Unknown')}
+                                {localSession.outputSettings?.width ? `${localSession.outputSettings.width}x${localSession.outputSettings.height} • ` : ''}
+                                {localSession.outputSettings?.format ? localSession.outputSettings.format.toUpperCase() : (localSession.outputSettings?.size || 'Unknown')}
                             </div>
                         </div>
                     </div>
 
                     <div className={styles.imageGrid}>
-                        {session.images.map((img) => (
+                        {localSession.images.map((img) => (
                             <div key={img.id} className={styles.imageCard}>
                                 <div className={styles.imageWrapper}>
                                     {img.generatedImageUrl ? (
@@ -95,18 +125,34 @@ export default function SessionDetailsModal({
                                     <p className={styles.prompt} title={img.promptModification || img.promptUsed}>
                                         {img.promptModification || 'No prompt modification'}
                                     </p>
-                                    {img.generatedImageUrl && (
-                                        <a
-                                            href={img.generatedImageUrl}
-                                            download
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className={styles.downloadLink}
-                                            onClick={(e) => e.stopPropagation()}
+                                    <div className={styles.cardFooter}>
+                                        <button
+                                            className={styles.deleteImageBtn}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteImage(img.id);
+                                            }}
+                                            title="Delete Image"
                                         >
-                                            Download High-Res
-                                        </a>
-                                    )}
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M3 6h18" />
+                                                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                                                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                                            </svg>
+                                        </button>
+                                        {img.generatedImageUrl && (
+                                            <a
+                                                href={img.generatedImageUrl}
+                                                download
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className={styles.downloadLink}
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                Download High-Res
+                                            </a>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         ))}
