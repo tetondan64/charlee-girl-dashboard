@@ -3,12 +3,7 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import styles from './PatternUpload.module.css';
 import { upload } from '@vercel/blob/client';
-
-interface PersistentPattern {
-    id: string;
-    name: string;
-    url: string;
-}
+import { PersistentPattern } from '@/types';
 
 interface PatternUploadProps {
     onUpload: (fileOrUrl: File | string) => void;

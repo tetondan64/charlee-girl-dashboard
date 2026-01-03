@@ -112,3 +112,14 @@ export interface GenerationResult {
     prompt: string;
     estimatedCost: number;
 }
+estimatedCost: number;
+}
+
+// Persistent Pattern
+export interface PersistentPattern {
+    id: string;
+    name: string;
+    url: string;
+    productTypeId?: string;
+    createdAt: string;
+}

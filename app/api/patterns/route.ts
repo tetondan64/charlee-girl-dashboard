@@ -1,5 +1,6 @@
 import { Redis } from '@upstash/redis';
 import { NextResponse } from 'next/server';
+import { PersistentPattern } from '@/types';
 
 // Force dynamic rendering and disable all caching
 export const dynamic = 'force-dynamic';
