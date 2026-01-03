@@ -91,7 +91,8 @@ export default function PatternUpload({
                     // If duplicate, append timestamp to name to avoid exact name collision in DB if strictly enforced (it's not, but good practice)
                     name: existing ? `${derivedName} ${new Date().toLocaleTimeString()}` : derivedName,
                     url: newBlob.url,
-                    productTypeId: productTypeId
+                    productTypeId: productTypeId,
+                    createdAt: new Date().toISOString()
                 };
 
                 await fetch('/api/patterns', {
