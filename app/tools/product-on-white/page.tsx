@@ -89,23 +89,40 @@ export default function ProductOnWhitePage() {
     // Track if we just did an immediate save (to skip debounced save)
     const justSavedRef = React.useRef(false);
 
-    // Save when template sets change (debounced)
+    // Keep a ref to the current templateSets to avoid stale closures
+    const templateSetsRef = React.useRef(templateSets);
+    useEffect(() => {
+        templateSetsRef.current = templateSets;
+    }, [templateSets]);
+
+    // Save when template sets change (debounced) - only trigger debounce, actual save reads from ref
     useEffect(() => {
         if (!isLoaded) return;
         // Skip if we just did an immediate save
         if (justSavedRef.current) {
             justSavedRef.current = false;
+            console.log('[TemplateSet] Skipping debounced save (just did immediate save)');
             return;
         }
 
         const saveToServer = async () => {
-            if (isSaving) return; // Don't overlap with other saves
+            if (isSaving) {
+                console.log('[TemplateSet] Skipping debounced save (already saving)');
+                return; // Don't overlap with other saves
+            }
+            // Use ref to get CURRENT value, not stale closure value
+            const currentSets = templateSetsRef.current;
+            console.log('[TemplateSet] Debounced save starting with', currentSets.length, 'sets');
+            currentSets.forEach((set, i) => {
+                console.log(`[TemplateSet]   Set ${i}: "${set.name}" with ${set.templates?.length || 0} templates`);
+            });
+
             setIsSaving(true);
             try {
-                const success = await saveTemplateSetsToServer(templateSets);
+                const success = await saveTemplateSetsToServer(currentSets);
                 if (success) {
                     setLastSaved(new Date());
-                    console.log('[TemplateSet] Debounced save to server:', templateSets.length, 'sets');
+                    console.log('[TemplateSet] Debounced save completed successfully');
                 }
             } catch (error) {
                 console.error('[TemplateSet] Failed to save:', error);
@@ -117,7 +134,7 @@ export default function ProductOnWhitePage() {
         // Debounce saves to avoid too many requests
         const timeoutId = setTimeout(saveToServer, 1000);
         return () => clearTimeout(timeoutId);
-    }, [templateSets, isLoaded]); // Removed isSaving from deps to prevent re-triggering
+    }, [templateSets, isLoaded]); // Trigger on changes, but read from ref
 
     const selectedSet = templateSets.find(s => s.id === selectedSetId);
     const templates = selectedSet?.templates || [];
