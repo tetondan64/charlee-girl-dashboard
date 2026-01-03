@@ -3,13 +3,16 @@
 import { useState } from 'react';
 import { upload } from '@vercel/blob/client';
 import styles from './TemplateGrid.module.css';
-import { ImageType } from '@/types';
+import { ImageType, PromptPreset } from '@/types';
 
 interface TemplateGridProps {
     templates: ImageType[];
     promptModifications: Record<string, string>;
     onPromptModification: (templateId: string, modification: string) => void;
     onTemplatesChange: (templates: ImageType[], saveNow?: boolean) => void;
+    presets?: PromptPreset[];
+    onAddPreset?: (name: string, promptText: string) => void;
+    onDeletePreset?: (presetId: string) => void;
 }
 
 export default function TemplateGrid({
@@ -17,6 +20,9 @@ export default function TemplateGrid({
     promptModifications,
     onPromptModification,
     onTemplatesChange,
+    presets,
+    onAddPreset,
+    onDeletePreset
 }: TemplateGridProps) {
     const [selectedTemplate, setSelectedTemplate] = useState<string | null>(
         templates[0]?.id || null
@@ -182,15 +188,7 @@ export default function TemplateGrid({
                         <h4 className={styles.detailsTitle}>
                             {selectedTemplateData.name}
                         </h4>
-                        <button className={styles.swapButton}>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                                <path d="M3 3v5h5" />
-                                <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
-                                <path d="M16 16h5v5" />
-                            </svg>
-                            Swap Template
-                        </button>
+                        {/* Swap button removed */}
                     </div>
 
                     <div className={styles.promptSection}>
@@ -255,30 +253,56 @@ export default function TemplateGrid({
                             className={styles.modificationInput}
                             rows={2}
                         />
-                        <div className={styles.presetRow}>
-                            <span className={styles.presetLabel}>Quick presets:</span>
-                            <button
-                                className={styles.presetButton}
-                                onClick={() =>
-                                    onPromptModification(
-                                        selectedTemplateData.id,
-                                        'Make the drawstring black instead of white'
-                                    )
-                                }
-                            >
-                                Black drawstring
-                            </button>
-                            <button
-                                className={styles.presetButton}
-                                onClick={() =>
-                                    onPromptModification(
-                                        selectedTemplateData.id,
-                                        'Make the image slightly brighter and more vibrant'
-                                    )
-                                }
-                            >
-                                Brighter colors
-                            </button>
+
+                        <div className={styles.presetSection}>
+                            <div className={styles.presetHeader}>
+                                <span className={styles.presetLabel}>Quick presets:</span>
+                                {(promptModifications[selectedTemplateData.id] || '').trim() && (
+                                    <button
+                                        className={styles.savePresetButton}
+                                        onClick={() => {
+                                            const text = promptModifications[selectedTemplateData.id];
+                                            const name = prompt('Preset Name:', text.slice(0, 20) + (text.length > 20 ? '...' : ''));
+                                            if (name) {
+                                                onAddPreset?.(name, text);
+                                            }
+                                        }}
+                                        title="Save current text as a new preset"
+                                    >
+                                        + Save as Preset
+                                    </button>
+                                )}
+                            </div>
+
+                            <div className={styles.presetList}>
+                                {presets && presets.length > 0 ? (
+                                    presets.map(preset => (
+                                        <div key={preset.id} className={styles.presetItem}>
+                                            <button
+                                                className={styles.presetButton}
+                                                onClick={() => onPromptModification(selectedTemplateData.id, preset.promptText)}
+                                                title={preset.promptText}
+                                            >
+                                                {preset.name}
+                                            </button>
+                                            <button
+                                                className={styles.deletePresetButton}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (confirm(`Delete preset "${preset.name}"?`)) {
+                                                        onDeletePreset?.(preset.id);
+                                                    }
+                                                }}
+                                                title="Delete preset"
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <span style={{ color: '#999', fontSize: '0.85rem' }}>No presets yet. Type a modification and click "Save as Preset".</span>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>

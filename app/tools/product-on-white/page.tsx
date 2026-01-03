@@ -217,6 +217,36 @@ export default function ProductOnWhitePage() {
         }));
     }, []);
 
+    const handleAddPreset = useCallback((name: string, promptText: string) => {
+        if (!selectedSetId) return;
+        const newPreset = {
+            id: `pre-${Date.now()}`,
+            name,
+            promptText,
+            createdAt: new Date(),
+        };
+
+        const updatedSets = templateSets.map(s =>
+            s.id === selectedSetId
+                ? { ...s, presets: [...(s.presets || []), newPreset], updatedAt: new Date() }
+                : s
+        );
+        setTemplateSets(updatedSets);
+        saveToServer(updatedSets);
+    }, [selectedSetId, templateSets, saveToServer]);
+
+    const handleDeletePreset = useCallback((presetId: string) => {
+        if (!selectedSetId) return;
+
+        const updatedSets = templateSets.map(s =>
+            s.id === selectedSetId
+                ? { ...s, presets: (s.presets || []).filter(p => p.id !== presetId), updatedAt: new Date() }
+                : s
+        );
+        setTemplateSets(updatedSets);
+        saveToServer(updatedSets);
+    }, [selectedSetId, templateSets, saveToServer]);
+
     const handleGenerate = async () => {
         if (!patternImage || !selectedSet) return;
 
@@ -518,6 +548,9 @@ export default function ProductOnWhitePage() {
                                     promptModifications={promptModifications}
                                     onPromptModification={handlePromptModification}
                                     onTemplatesChange={handleTemplatesChange}
+                                    presets={selectedSet.presets}
+                                    onAddPreset={handleAddPreset}
+                                    onDeletePreset={handleDeletePreset}
                                 />
                             ) : (
                                 <div className={styles.emptyState}>

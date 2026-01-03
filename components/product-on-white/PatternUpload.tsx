@@ -187,24 +187,18 @@ export default function PatternUpload({
                 >
                     Upload New
                 </button>
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <button
-                        className={`${styles.tab} ${activeTab === 'saved' ? styles.activeTab : ''}`}
-                        onClick={() => setActiveTab('saved')}
-                    >
-                        Saved Swatches
-                    </button>
-                    {activeTab === 'saved' && savedPatterns.length > 0 && (
-                        <button
-                            className={styles.selectionToggle}
-                            onClick={toggleSelectionMode}
-                            title={isSelectionMode ? "Cancel selection" : "Select multiple to delete"}
-                        >
-                            {isSelectionMode ? 'Cancel' : 'Select'}
-                        </button>
-                    )}
-                </div>
             </div>
+            {activeTab === 'saved' && savedPatterns.length > 0 && (
+                <div style={{ textAlign: 'right', marginTop: '-0.5rem', marginBottom: '0.5rem' }}>
+                    <button
+                        className={styles.selectionToggle}
+                        onClick={toggleSelectionMode}
+                        title={isSelectionMode ? "Cancel selection" : "Select multiple to delete"}
+                    >
+                        {isSelectionMode ? 'Cancel' : 'Select'}
+                    </button>
+                </div>
+            )}
 
             {activeTab === 'upload' && (
                 <div className={styles.tabContent}>
@@ -312,15 +306,6 @@ export default function PatternUpload({
                                         )}
                                     </div>
                                     <div className={styles.swatchLabel}>{pattern.name}</div>
-                                    {!isSelectionMode && (
-                                        <button
-                                            className={styles.deleteSwatch}
-                                            onClick={(e) => handleDeletePattern(e, pattern.id)}
-                                            title="Delete pattern"
-                                        >
-                                            ×
-                                        </button>
-                                    )}
                                     {/* Zoom Popup (CSS Only) */}
                                     {!isSelectionMode && (
                                         <div className={styles.zoomPopup}>

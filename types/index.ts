@@ -6,6 +6,7 @@ export interface TemplateSet {
     name: string;
     icon: string;
     templates: ImageTemplate[];
+    presets?: PromptPreset[];
     sortOrder: number;
     createdAt: Date;
     updatedAt: Date;
