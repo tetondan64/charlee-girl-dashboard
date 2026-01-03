@@ -34,19 +34,21 @@ export async function POST(req: NextRequest) {
         const templateImageFile = templateInput instanceof File ? templateInput : null;
         const templateImageUrl = typeof templateInput === 'string' ? templateInput : null;
 
-        const patternImage = formData.get('pattern') as File;
+        const patternInput = formData.get('pattern');
+        const patternImageFile = patternInput instanceof File ? patternInput : null;
+        const patternImageUrl = typeof patternInput === 'string' ? patternInput : null;
         const userPrompt = formData.get('prompt') as string || '';
         const aspectRatio = formData.get('aspectRatio') as string || '1:1';
         const size = formData.get('size') as string || '2k';
 
         // Validate inputs
-        if ((!templateImageFile && !templateImageUrl) || !patternImage) {
+        if ((!templateImageFile && !templateImageUrl) || (!patternImageFile && !patternImageUrl)) {
             return NextResponse.json(
                 {
-                    error: 'Template (file or URL) and pattern image are required',
+                    error: 'Template (file or URL) and pattern (file or URL) are required',
                     receivedFields: fields,
                     templateReceived: !!templateInput,
-                    patternReceived: !!patternImage
+                    patternReceived: !!patternInput
                 },
                 { status: 400 }
             );
@@ -76,16 +78,37 @@ export async function POST(req: NextRequest) {
             throw new Error('No template provided');
         }
 
-        // Convert pattern image to base64
-        const patternBytes = await patternImage.arrayBuffer();
-        const patternBase64 = Buffer.from(patternBytes).toString('base64');
+        // Processing Pattern Image
+        let patternBase64: string;
+        let patternMimeType: string;
+
+        if (patternImageFile) {
+            const patternBytes = await patternImageFile.arrayBuffer();
+            patternBase64 = Buffer.from(patternBytes).toString('base64');
+            patternMimeType = patternImageFile.type;
+        } else if (patternImageUrl) {
+            console.log(`Processing pattern from URL: ${patternImageUrl}`);
+            const urlResponse = await fetch(patternImageUrl);
+            if (!urlResponse.ok) {
+                throw new Error(`Failed to fetch pattern image from URL: ${urlResponse.statusText}`);
+            }
+            const patternBlob = await urlResponse.blob();
+            const patternBytes = await patternBlob.arrayBuffer();
+            patternBase64 = Buffer.from(patternBytes).toString('base64');
+            patternMimeType = patternBlob.type || 'image/png';
+        } else {
+            throw new Error('No pattern provided');
+        }
 
         console.log('Processing images:', {
             template: {
                 source: templateImageFile ? 'file' : 'url',
                 type: templateMimeType
             },
-            pattern: { size: patternBytes.byteLength, type: patternImage.type }
+            pattern: {
+                source: patternImageFile ? 'file' : 'url',
+                type: patternMimeType
+            }
         });
 
         // Initialize the Gemini model with system instructions
@@ -116,7 +139,7 @@ export async function POST(req: NextRequest) {
                     { text: 'PATTERN TO APPLY:' },
                     {
                         inlineData: {
-                            mimeType: patternImage.type,
+                            mimeType: patternMimeType,
                             data: patternBase64
                         }
                     },

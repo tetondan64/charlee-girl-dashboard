@@ -71,7 +71,7 @@ type WorkflowStep = 'setup' | 'generating' | 'results';
 export default function ProductOnWhitePage() {
     const [templateSets, setTemplateSets] = useState<TemplateSet[]>([]);
     const [selectedSetId, setSelectedSetId] = useState<string>('');
-    const [patternImage, setPatternImage] = useState<File | null>(null);
+    const [patternImage, setPatternImage] = useState<File | string | null>(null);
     const [patternName, setPatternName] = useState('');
     const [promptModifications, setPromptModifications] = useState<Record<string, string>>({});
     const [outputSettings, setOutputSettings] = useState<OutputSettingsType>({
@@ -198,10 +198,14 @@ export default function ProductOnWhitePage() {
         saveToServer(updatedSets);
     }, [selectedSetId, templateSets, saveToServer]);
 
-    const handlePatternUpload = useCallback((file: File) => {
-        setPatternImage(file);
-        const name = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
-        setPatternName(name);
+    const handlePatternUpload = useCallback((fileOrUrl: File | string) => {
+        setPatternImage(fileOrUrl);
+        if (fileOrUrl instanceof File) {
+            const name = fileOrUrl.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+            setPatternName(name);
+        }
+        // If it's a URL (saved pattern), the component handling the selection 
+        // should probably pass the name too, but for now we'll let the user edit it if needed.
     }, []);
 
     const handlePromptModification = useCallback((templateId: string, modification: string) => {
