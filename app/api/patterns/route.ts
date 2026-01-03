@@ -22,18 +22,33 @@ export interface PersistentPattern {
     id: string;
     name: string;
     url: string;
-    createdAt: string; // ISO string for JSON serialization
+    productTypeId?: string; // Optional for backward compatibility/global patterns
+    createdAt: string;
 }
 
-// GET - Fetch all patterns
-export async function GET() {
+// GET - Fetch patterns, optionally filtered by productTypeId
+export async function GET(request: Request) {
     try {
         if (!redisClient) {
             console.warn('[GET /api/patterns] Redis not configured, returning empty list');
             return NextResponse.json([]);
         }
+
+        const { searchParams } = new URL(request.url);
+        const productTypeId = searchParams.get('productTypeId');
+
         const patterns = await redisClient.get<PersistentPattern[]>(PATTERNS_KEY);
-        return NextResponse.json(patterns || []);
+        let result = patterns || [];
+
+        // Filter by productTypeId if provided
+        // If productTypeId is provided, show patterns that match OR have no productTypeId (global)
+        // Or if the user wants STRICT scoping, only show matches.
+        // Let's go with strict + global (if any) for now, or just strict as requested "tied to a specific product type"
+        if (productTypeId) {
+            result = result.filter(p => !p.productTypeId || p.productTypeId === productTypeId);
+        }
+
+        return NextResponse.json(result);
     } catch (error) {
         console.error('Failed to fetch patterns:', error);
         return NextResponse.json({ error: 'Failed to fetch patterns' }, { status: 500 });
@@ -50,8 +65,6 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Storage not available in local mode' }, { status: 503 });
         }
 
-        // Simple append - concurrency isn't as critical here as templates, 
-        // but we'll specific implementation to be safe-ish
         const currentPatterns = (await redisClient.get<PersistentPattern[]>(PATTERNS_KEY)) || [];
         const updatedPatterns = [...currentPatterns, newPattern];
 
@@ -80,6 +93,7 @@ export async function DELETE(request: Request) {
         }
 
         const currentPatterns = (await redisClient.get<PersistentPattern[]>(PATTERNS_KEY)) || [];
+        // Just filter by ID, no need to check productTypeId for deletion
         const updatedPatterns = currentPatterns.filter(p => p.id !== id);
 
         await redisClient.set(PATTERNS_KEY, updatedPatterns);

@@ -478,19 +478,6 @@ export default function ProductOnWhitePage() {
             <main className={styles.main}>
                 {workflowStep === 'setup' && (
                     <div className={styles.setupContainer}>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
-                            <Link href="/history" style={{
-                                color: 'var(--brown-primary)',
-                                textDecoration: 'none',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.5rem',
-                                fontWeight: 500
-                            }}>
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-                                View History
-                            </Link>
-                        </div>
                         {/* Step 1: Template Set & Pattern */}
                         <section className={styles.section}>
                             <div className={styles.sectionHeader}>
@@ -520,6 +507,7 @@ export default function ProductOnWhitePage() {
                                         patternName={patternName}
                                         onPatternNameChange={setPatternName}
                                         currentFile={patternImage}
+                                        productTypeId={selectedSetId}
                                     />
                                 </div>
                             </div>

@@ -15,13 +15,15 @@ interface PatternUploadProps {
     patternName: string;
     onPatternNameChange: (name: string) => void;
     currentFile: File | string | null;
+    productTypeId?: string;
 }
 
 export default function PatternUpload({
     onUpload,
     patternName,
     onPatternNameChange,
-    currentFile
+    currentFile,
+    productTypeId
 }: PatternUploadProps) {
     const [isDragging, setIsDragging] = useState(false);
     const [activeTab, setActiveTab] = useState<'upload' | 'saved'>('upload');
@@ -36,7 +38,8 @@ export default function PatternUpload({
     const fetchPatterns = useCallback(async () => {
         setIsLoadingPatterns(true);
         try {
-            const res = await fetch('/api/patterns');
+            const query = productTypeId ? `?productTypeId=${productTypeId}` : '';
+            const res = await fetch(`/api/patterns${query}`);
             if (res.ok) {
                 const data = await res.json();
                 setSavedPatterns(data);
@@ -46,10 +49,10 @@ export default function PatternUpload({
         } finally {
             setIsLoadingPatterns(false);
         }
-    }, []);
+    }, [productTypeId]);
 
     useEffect(() => {
-        // Always fetch patterns on mount
+        // Always fetch patterns on mount or when product type changes
         fetchPatterns();
     }, [fetchPatterns]);
 
@@ -93,6 +96,7 @@ export default function PatternUpload({
                     // If duplicate, append timestamp to name to avoid exact name collision in DB if strictly enforced (it's not, but good practice)
                     name: existing ? `${derivedName} ${new Date().toLocaleTimeString()}` : derivedName,
                     url: newBlob.url,
+                    productTypeId: productTypeId
                 };
 
                 await fetch('/api/patterns', {
@@ -109,7 +113,7 @@ export default function PatternUpload({
                 setIsUploading(false);
             }
         }
-    }, [onUpload, fetchPatterns, savedPatterns]);
+    }, [onUpload, fetchPatterns, savedPatterns, onPatternNameChange, productTypeId]);
 
     const handleSwatchSelect = (pattern: PersistentPattern) => {
         if (isSelectionMode) {
@@ -186,6 +190,12 @@ export default function PatternUpload({
                     onClick={() => setActiveTab('upload')}
                 >
                     Upload New
+                </button>
+                <button
+                    className={`${styles.tab} ${activeTab === 'saved' ? styles.activeTab : ''}`}
+                    onClick={() => setActiveTab('saved')}
+                >
+                    Saved Swatches
                 </button>
             </div>
             {activeTab === 'saved' && savedPatterns.length > 0 && (
