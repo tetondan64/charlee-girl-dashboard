@@ -7,10 +7,14 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 // Initialize Redis client safely
-const redisClient = (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
+// Initialize Redis client safely with support for both Upstash and Vercel KV
+const redisUrl = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+
+const redisClient = (redisUrl && redisToken)
     ? new Redis({
-        url: process.env.UPSTASH_REDIS_REST_URL,
-        token: process.env.UPSTASH_REDIS_REST_TOKEN,
+        url: redisUrl,
+        token: redisToken,
     })
     : null;
 
