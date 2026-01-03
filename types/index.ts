@@ -112,8 +112,6 @@ export interface GenerationResult {
     prompt: string;
     estimatedCost: number;
 }
-estimatedCost: number;
-}
 
 // Persistent Pattern
 export interface PersistentPattern {
