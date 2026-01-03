@@ -13,6 +13,7 @@ const redis = new Redis({
 });
 
 const TEMPLATES_KEY = 'charlee-girl-template-sets';
+const VERSION_KEY = 'charlee-girl-template-sets:version';
 
 // Default template set to use when no data exists
 function getDefaultTemplateSet(): TemplateSet {
@@ -24,7 +25,7 @@ function getDefaultTemplateSet(): TemplateSet {
             {
                 id: 'front-view',
                 name: 'Front View',
-                templateImageUrl: '',
+                templateImageUrl: '', // Users must upload their own image
                 basePrompt: 'Apply the pattern to the front view of the hat, maintaining the natural straw texture and shape.',
                 sortOrder: 0,
                 createdAt: new Date(),
@@ -33,12 +34,12 @@ function getDefaultTemplateSet(): TemplateSet {
             {
                 id: 'side-view',
                 name: 'Side View',
-                templateImageUrl: '',
+                templateImageUrl: '', // Users must upload their own image
                 basePrompt: 'Apply the pattern to the side view of the hat, showing the full brim profile.',
                 sortOrder: 1,
                 createdAt: new Date(),
                 updatedAt: new Date(),
-            },
+            }
         ],
         sortOrder: 0,
         createdAt: new Date(),
@@ -50,17 +51,18 @@ function getDefaultTemplateSet(): TemplateSet {
 export async function GET() {
     try {
         console.log('[GET /api/templates] Fetching template sets from Redis...');
-        const templateSets = await redis.get<TemplateSet[]>(TEMPLATES_KEY);
+        // Fetch both data and version atomically-ish (pipeline)
+        const [templateSets, version] = await redis.mget<[TemplateSet[] | null, string | null]>(TEMPLATES_KEY, VERSION_KEY);
 
         // Debug: log what we got from Redis
         console.log('[GET /api/templates] Raw Redis response:',
-            templateSets === null ? 'NULL' : `${templateSets.length} sets`);
+            templateSets === null ? 'NULL' : `${templateSets.length} sets`,
+            'Version:', version
+        );
+
         if (templateSets && templateSets.length > 0) {
             templateSets.forEach((set, i) => {
                 console.log(`[GET /api/templates]   Set ${i}: "${set.name}" with ${set.templates?.length || 0} templates`);
-                set.templates?.forEach((t, j) => {
-                    console.log(`[GET /api/templates]     Template ${j}: "${t.name}" (id: ${t.id})`);
-                });
             });
         }
 
@@ -70,22 +72,38 @@ export async function GET() {
             // First time setup - create default template set
             console.log('[GET /api/templates] Creating default template set (first time setup)');
             const defaultSet = getDefaultTemplateSet();
-            await redis.set(TEMPLATES_KEY, [defaultSet]);
+
+            // Initialize data and version
+            const pipeline = redis.pipeline();
+            pipeline.set(TEMPLATES_KEY, [defaultSet]);
+            pipeline.set(VERSION_KEY, '1');
+            await pipeline.exec();
+
             const response = NextResponse.json([defaultSet]);
             response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+            response.headers.set('ETag', '1');
             return response;
         }
 
         // Return whatever is stored (including empty array if user deleted all)
         const response = NextResponse.json(templateSets);
         response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+        if (version) {
+            response.headers.set('ETag', version);
+        } else {
+            // If data exists but version missing (migration), treat as version 1
+            response.headers.set('ETag', '1');
+        }
         return response;
     } catch (error) {
         console.error('[GET /api/templates] Error:', error);
         // If Redis is not configured, return default data
         if (error instanceof Error && (error.message.includes('UPSTASH') || error.message.includes('Redis'))) {
             console.warn('[GET /api/templates] Redis not configured, returning default data');
-            return NextResponse.json([getDefaultTemplateSet()]);
+            const defaultSet = getDefaultTemplateSet();
+            const response = NextResponse.json([defaultSet]);
+            response.headers.set('ETag', '1');
+            return response;
         }
         return NextResponse.json(
             { error: 'Failed to fetch template sets' },
@@ -93,6 +111,23 @@ export async function GET() {
         );
     }
 }
+
+// Lua script to check version and update atomically
+// KEYS[1] = version key, KEYS[2] = data key
+// ARGV[1] = expected version, ARGV[2] = new data (json)
+// Returns: new version (number) if success, -1 if conflict
+const CAS_SCRIPT = `
+    local current = redis.call('get', KEYS[1])
+    -- If version missing (migration), assume '1' matches if client sent '1'
+    if not current then current = '1' end
+    
+    if current == ARGV[1] then
+        redis.call('set', KEYS[2], ARGV[2])
+        return redis.call('incr', KEYS[1])
+    else
+        return -1
+    end
+`;
 
 // POST - Create a new template set
 export async function POST(request: Request) {
@@ -104,11 +139,47 @@ export async function POST(request: Request) {
         newSet.updatedAt = new Date();
         newSet.id = newSet.id || `set-${Date.now()}`;
 
-        const templateSets = await redis.get<TemplateSet[]>(TEMPLATES_KEY) || [];
-        templateSets.push(newSet);
-        await redis.set(TEMPLATES_KEY, templateSets);
+        // CAS Loop to handle concurrency
+        let attempts = 0;
+        const MAX_ATTEMPTS = 5;
 
-        return NextResponse.json(newSet, { status: 201 });
+        while (attempts < MAX_ATTEMPTS) {
+            attempts++;
+
+            // 1. Fetch current data and version
+            const [currentSets, currentVersion] = await redis.mget<[TemplateSet[] | null, string | null]>(TEMPLATES_KEY, VERSION_KEY);
+            const templateSets = currentSets || [];
+            const version = currentVersion || '1'; // Default to 1 if missing
+
+            // 2. Modify
+            templateSets.push(newSet);
+
+            // 3. Try to save with CAS
+            const result = await redis.eval(
+                CAS_SCRIPT,
+                [VERSION_KEY, TEMPLATES_KEY],
+                [version, templateSets]
+            );
+
+            if (result !== -1) {
+                // Success
+                console.log(`[POST /api/templates] Successfully created set via CAS (Attempt ${attempts})`);
+                const response = NextResponse.json(newSet, { status: 201 });
+                response.headers.set('ETag', String(result));
+                return response;
+            }
+
+            // Conflict, retry
+            console.warn(`[POST /api/templates] CAS Conflict (Attempt ${attempts}). Retrying...`);
+            // Small jittered delay
+            await new Promise(r => setTimeout(r, Math.random() * 100));
+        }
+
+        return NextResponse.json(
+            { error: 'Failed to create template set due to high concurrency. Please try again.' },
+            { status: 409 }
+        );
+
     } catch (error) {
         console.error('Error creating template set:', error);
         return NextResponse.json(
@@ -122,16 +193,22 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
     try {
         const templateSets: TemplateSet[] = await request.json();
+        const ifMatch = request.headers.get('If-Match');
 
-        // Debug: log what we're saving
-        console.log('[PUT /api/templates] Received data to save:');
+        // Enforce If-Match
+        if (!ifMatch) {
+            console.warn('[PUT /api/templates] Missing If-Match header');
+            // If checking persistence manually with curl without header, this will fail.
+            // But browser will be updated to send it.
+            return NextResponse.json(
+                { error: 'Precondition Required: Please refresh the page.' },
+                { status: 428 }
+            );
+        }
+
+        // Debug
+        console.log('[PUT /api/templates] Received data to save for version:', ifMatch);
         console.log(`[PUT /api/templates]   Total sets: ${templateSets.length}`);
-        templateSets.forEach((set, i) => {
-            console.log(`[PUT /api/templates]   Set ${i}: "${set.name}" (id: ${set.id}) with ${set.templates?.length || 0} templates`);
-            set.templates?.forEach((t, j) => {
-                console.log(`[PUT /api/templates]     Template ${j}: "${t.name}" (id: ${t.id})`);
-            });
-        });
 
         // Update timestamps
         const updatedSets = templateSets.map(set => ({
@@ -139,44 +216,35 @@ export async function PUT(request: Request) {
             updatedAt: new Date(),
         }));
 
-        console.log('[PUT /api/templates] Saving to Redis...');
-        await redis.set(TEMPLATES_KEY, updatedSets);
-        console.log('[PUT /api/templates] Successfully saved to Redis');
+        console.log('[PUT /api/templates] Saving to Redis with Optimistic Locking...');
+
+        const result = await redis.eval(
+            CAS_SCRIPT,
+            [VERSION_KEY, TEMPLATES_KEY],
+            [ifMatch, updatedSets]
+        );
+
+        console.log('[PUT /api/templates] Redis eval result:', result);
+
+        if (result === -1) {
+            console.warn('[PUT /api/templates] Conflict detected. Client version:', ifMatch);
+            return NextResponse.json(
+                { error: 'Conflict: Data has changed on server. Please refresh.' },
+                { status: 409 }
+            );
+        }
+
+        const newVersion = String(result);
+        console.log('[PUT /api/templates] Successfully saved. New version:', newVersion);
 
         const response = NextResponse.json(updatedSets);
         response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+        response.headers.set('ETag', newVersion);
         return response;
     } catch (error) {
         console.error('[PUT /api/templates] Error:', error);
         return NextResponse.json(
             { error: 'Failed to update template sets' },
-            { status: 500 }
-        );
-    }
-}
-
-// DELETE - Delete a template set by ID
-export async function DELETE(request: Request) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const setId = searchParams.get('id');
-
-        if (!setId) {
-            return NextResponse.json(
-                { error: 'Template set ID is required' },
-                { status: 400 }
-            );
-        }
-
-        const templateSets = await redis.get<TemplateSet[]>(TEMPLATES_KEY) || [];
-        const filteredSets = templateSets.filter(set => set.id !== setId);
-        await redis.set(TEMPLATES_KEY, filteredSets);
-
-        return NextResponse.json({ success: true });
-    } catch (error) {
-        console.error('Error deleting template set:', error);
-        return NextResponse.json(
-            { error: 'Failed to delete template set' },
             { status: 500 }
         );
     }

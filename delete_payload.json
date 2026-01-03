@@ -1,0 +1,30 @@
+[
+    {
+        "id": "lifeguard-straw-hat",
+        "name": "Lifeguard Straw Hat",
+        "icon": "🎩",
+        "templates": [
+            {
+                "id": "side-view",
+                "name": "Side View",
+                "templateImageUrl": "",
+                "basePrompt": "Apply the pattern to the side view of the hat, showing the full brim profile.",
+                "sortOrder": 1,
+                "createdAt": "2026-01-03T01:34:31.528Z",
+                "updatedAt": "2026-01-03T01:34:31.528Z"
+            },
+            {
+                "name": "Server Test 3",
+                "templateImageUrl": "",
+                "basePrompt": "Testing server persistence 3",
+                "sortOrder": 2,
+                "id": "custom-1767406166197",
+                "createdAt": "2026-01-03T02:09:26.197Z",
+                "updatedAt": "2026-01-03T02:09:26.197Z"
+            }
+        ],
+        "sortOrder": 0,
+        "createdAt": "2026-01-03T01:34:31.528Z",
+        "updatedAt": "2026-01-03T04:01:33.345Z"
+    }
+]

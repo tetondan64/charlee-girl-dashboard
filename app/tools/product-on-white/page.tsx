@@ -11,13 +11,16 @@ import GenerationResults from '@/components/product-on-white/GenerationResults';
 import { TemplateSet, ImageTemplate, OutputSettings as OutputSettingsType, GeneratedImage } from '@/types';
 
 // API functions for server-side persistence
-const fetchTemplateSets = async (): Promise<TemplateSet[]> => {
+const fetchTemplateSets = async (): Promise<{ sets: TemplateSet[], etag: string | null }> => {
     try {
         const response = await fetch('/api/templates');
         if (!response.ok) throw new Error('Failed to fetch templates');
+
+        const etag = response.headers.get('ETag');
         const data = await response.json();
+
         // Convert date strings to Date objects
-        return data.map((set: TemplateSet) => ({
+        const sets = data.map((set: TemplateSet) => ({
             ...set,
             createdAt: new Date(set.createdAt),
             updatedAt: new Date(set.updatedAt),
@@ -27,23 +30,38 @@ const fetchTemplateSets = async (): Promise<TemplateSet[]> => {
                 updatedAt: new Date(t.updatedAt),
             })),
         }));
+
+        return { sets, etag };
     } catch (error) {
         console.error('Failed to fetch template sets:', error);
-        return [];
+        return { sets: [], etag: null };
     }
 };
 
-const saveTemplateSetsToServer = async (sets: TemplateSet[]): Promise<boolean> => {
+const saveTemplateSetsToServer = async (sets: TemplateSet[], etag: string | null): Promise<{ success: boolean, newEtag?: string, status?: number }> => {
     try {
+        const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+        };
+        if (etag) {
+            headers['If-Match'] = etag;
+        }
+
         const response = await fetch('/api/templates', {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify(sets),
         });
-        return response.ok;
+
+        if (response.ok) {
+            const newEtag = response.headers.get('ETag') || undefined;
+            return { success: true, newEtag, status: response.status };
+        } else {
+            return { success: false, status: response.status };
+        }
     } catch (error) {
         console.error('Failed to save template sets:', error);
-        return false;
+        return { success: false };
     }
 };
 
@@ -69,26 +87,32 @@ export default function ProductOnWhitePage() {
 
     // Ref to track if initial load is complete (to prevent saving during load)
     const initialLoadDoneRef = React.useRef(false);
+    // Ref to track the current ETag version
+    const lastEtagRef = React.useRef<string | null>(null);
 
-    // Load on mount from server
-    useEffect(() => {
-        const loadFromServer = async () => {
-            try {
-                const sets = await fetchTemplateSets();
-                setTemplateSets(sets);
-                if (sets.length > 0) {
-                    setSelectedSetId(sets[0].id);
-                }
-                console.log('[TemplateSet] Loaded from server:', sets.length, 'sets');
-            } catch (error) {
-                console.error('[TemplateSet] Failed to load:', error);
-            } finally {
-                setIsLoaded(true);
-                initialLoadDoneRef.current = true; // Enable saving after load
+    // Load function (extracted to allow invalidation)
+    const loadFromServer = useCallback(async () => {
+        try {
+            const { sets, etag } = await fetchTemplateSets();
+            setTemplateSets(sets);
+            lastEtagRef.current = etag;
+
+            if (sets.length > 0 && !selectedSetId) {
+                setSelectedSetId(sets[0].id);
             }
-        };
+            console.log('[TemplateSet] Loaded from server:', sets.length, 'sets. ETag:', etag);
+        } catch (error) {
+            console.error('[TemplateSet] Failed to load:', error);
+        } finally {
+            setIsLoaded(true);
+            initialLoadDoneRef.current = true; // Enable saving after load
+        }
+    }, [selectedSetId]);
+
+    // Load on mount
+    useEffect(() => {
         loadFromServer();
-    }, []);
+    }, [loadFromServer]);
 
     // Simple save function - always saves the provided data immediately
     const saveToServer = useCallback(async (sets: TemplateSet[]) => {
@@ -98,27 +122,31 @@ export default function ProductOnWhitePage() {
             return;
         }
 
-        console.log('[TemplateSet] Saving', sets.length, 'sets to server');
-        sets.forEach((set, i) => {
-            console.log(`[TemplateSet]   Set ${i}: "${set.name}" with ${set.templates?.length || 0} templates`);
-            set.templates?.forEach((t, j) => {
-                console.log(`[TemplateSet]     Template ${j}: "${t.name}" (id: ${t.id})`);
-            });
-        });
+        console.log('[TemplateSet] Saving', sets.length, 'sets to server. Version:', lastEtagRef.current);
 
         setIsSaving(true);
         try {
-            const success = await saveTemplateSetsToServer(sets);
-            if (success) {
+            const result = await saveTemplateSetsToServer(sets, lastEtagRef.current);
+
+            if (result.success) {
                 setLastSaved(new Date());
-                console.log('[TemplateSet] Save completed successfully');
+                if (result.newEtag) {
+                    lastEtagRef.current = result.newEtag;
+                }
+                console.log('[TemplateSet] Save completed successfully. New Version:', result.newEtag);
+            } else if (result.status === 409 || result.status === 428) {
+                console.warn('[TemplateSet] Data conflict detected (Status ' + result.status + '). Reloading...');
+                alert('Another session updated the templates. Reloading data...');
+                await loadFromServer();
+            } else {
+                console.error('[TemplateSet] Save failed with status:', result.status);
             }
         } catch (error) {
             console.error('[TemplateSet] Failed to save:', error);
         } finally {
             setIsSaving(false);
         }
-    }, []);
+    }, [loadFromServer]);
 
     const selectedSet = templateSets.find(s => s.id === selectedSetId);
     const templates = selectedSet?.templates || [];
