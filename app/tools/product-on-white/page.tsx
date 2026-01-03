@@ -142,14 +142,36 @@ export default function ProductOnWhitePage() {
         ));
     }, []);
 
+    // Immediate save function (bypasses debounce for critical operations like delete)
+    const saveImmediately = useCallback(async (sets: TemplateSet[]) => {
+        setIsSaving(true);
+        try {
+            const success = await saveTemplateSetsToServer(sets);
+            if (success) {
+                setLastSaved(new Date());
+                console.log('[TemplateSet] Saved immediately to server');
+            }
+        } catch (error) {
+            console.error('[TemplateSet] Failed to save:', error);
+        } finally {
+            setIsSaving(false);
+        }
+    }, []);
+
     // Template management within the current set
-    const handleTemplatesChange = useCallback((newTemplates: ImageTemplate[]) => {
-        setTemplateSets(prev => prev.map(s =>
+    const handleTemplatesChange = useCallback((newTemplates: ImageTemplate[], saveNow: boolean = false) => {
+        const updatedSets = templateSets.map(s =>
             s.id === selectedSetId
                 ? { ...s, templates: newTemplates, updatedAt: new Date() }
                 : s
-        ));
-    }, [selectedSetId]);
+        );
+        setTemplateSets(updatedSets);
+
+        // If saveNow is true (e.g., for deletions), save immediately
+        if (saveNow) {
+            saveImmediately(updatedSets);
+        }
+    }, [selectedSetId, templateSets, saveImmediately]);
 
     const handlePatternUpload = useCallback((file: File) => {
         setPatternImage(file);

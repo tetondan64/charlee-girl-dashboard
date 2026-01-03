@@ -8,7 +8,7 @@ interface TemplateGridProps {
     templates: ImageType[];
     promptModifications: Record<string, string>;
     onPromptModification: (templateId: string, modification: string) => void;
-    onTemplatesChange: (templates: ImageType[]) => void;
+    onTemplatesChange: (templates: ImageType[], saveNow?: boolean) => void;
 }
 
 export default function TemplateGrid({
@@ -86,9 +86,9 @@ export default function TemplateGrid({
 
     const handleDeleteTemplate = (templateId: string, e: React.MouseEvent) => {
         e.stopPropagation(); // Prevent selecting the template
-        // Delete immediately without confirmation
+        // Delete immediately without confirmation, and save to server immediately
         const updatedTemplates = templates.filter(t => t.id !== templateId);
-        onTemplatesChange(updatedTemplates);
+        onTemplatesChange(updatedTemplates, true); // saveNow=true for immediate persistence
         if (selectedTemplate === templateId) {
             setSelectedTemplate(updatedTemplates[0]?.id || null);
         }
