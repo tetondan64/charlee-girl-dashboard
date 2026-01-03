@@ -78,6 +78,7 @@ export default function ProductOnWhitePage() {
     const [outputSettings, setOutputSettings] = useState<OutputSettingsType>({
         aspectRatio: '1:1',
         size: '2k',
+        format: 'png',
     });
     const [workflowStep, setWorkflowStep] = useState<WorkflowStep>('setup');
     const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);

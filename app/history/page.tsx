@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Header from '@/components/layout/Header';
 import styles from './page.module.css';
 import { GeneratedImage, GenerationSession } from '@/types';
+import SessionDetailsModal from '@/components/history/SessionDetailsModal';
 
 interface HistoryItem extends GenerationSession {
     images: GeneratedImage[];
@@ -12,6 +13,7 @@ interface HistoryItem extends GenerationSession {
 export default function HistoryPage() {
     const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [selectedSession, setSelectedSession] = useState<HistoryItem | null>(null);
 
     const fetchHistory = async () => {
         try {
@@ -88,7 +90,12 @@ export default function HistoryPage() {
                                             </div>
                                         </div>
                                         <div className={styles.cardFooter}>
-                                            <button className={styles.viewButton}>View Details</button>
+                                            <button
+                                                className={styles.viewButton}
+                                                onClick={() => setSelectedSession(item)}
+                                            >
+                                                View Details
+                                            </button>
                                             <button
                                                 className={styles.deleteButton}
                                                 title="Delete Session"
@@ -108,6 +115,12 @@ export default function HistoryPage() {
                     )}
                 </div>
             </main>
+
+            <SessionDetailsModal
+                session={selectedSession}
+                isOpen={!!selectedSession}
+                onClose={() => setSelectedSession(null)}
+            />
         </div>
     );
 }

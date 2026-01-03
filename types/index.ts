@@ -45,6 +45,9 @@ export interface GenerationSession {
 export interface OutputSettings {
     aspectRatio: '1:1' | '4:3' | '3:4' | '16:9' | '9:16';
     size: '1k' | '2k' | '4k';
+    width?: number;
+    height?: number;
+    format: 'png' | 'jpg' | 'webp';
 }
 
 // Generated Image
