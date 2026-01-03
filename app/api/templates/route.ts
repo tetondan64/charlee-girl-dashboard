@@ -47,13 +47,16 @@ export async function GET() {
     try {
         const templateSets = await redis.get<TemplateSet[]>(TEMPLATES_KEY);
 
-        if (!templateSets || templateSets.length === 0) {
-            // Return default template set if none exist
+        // Only create defaults if the key has NEVER been set (null)
+        // An empty array [] means user intentionally deleted all templates
+        if (templateSets === null) {
+            // First time setup - create default template set
             const defaultSet = getDefaultTemplateSet();
             await redis.set(TEMPLATES_KEY, [defaultSet]);
             return NextResponse.json([defaultSet]);
         }
 
+        // Return whatever is stored (including empty array if user deleted all)
         return NextResponse.json(templateSets);
     } catch (error) {
         console.error('Error fetching template sets:', error);
