@@ -203,8 +203,16 @@ export async function POST(req: NextRequest) {
         // Upload to Vercel Blob for permanent storage
         const imageBuffer = Buffer.from(resultImage.data, 'base64');
         const fileExtension = resultImage.mimeType?.includes('png') ? 'png' : 'jpg';
-        // Organized path: active-sessions/{sessionId}/generated/{timestamp}.{ext}
-        const fileName = `active-sessions/${sessionId}/generated/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExtension}`;
+
+        // Get and sanitize pattern name
+        const patternName = formData.get('patternName') as string || 'pattern';
+        const sanitizedPatternName = patternName
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric with dashes
+            .replace(/^-+|-+$/g, ''); // Remove leading/trailing dashes
+
+        // Organized path: active-sessions/{sessionId}/generated/{patternName}-{timestamp}.{ext}
+        const fileName = `active-sessions/${sessionId}/generated/${sanitizedPatternName}-${Date.now()}.${fileExtension}`;
 
         const blob = await put(fileName, imageBuffer, {
             access: 'public',

@@ -330,6 +330,7 @@ export default function ProductOnWhitePage() {
                     throw new Error(`Template ${template.name} has no image`);
                 }
                 formData.append('pattern', patternImage);
+                formData.append('patternName', patternName); // Send the name for file naming
                 formData.append('prompt', fullPrompt);
                 formData.append('aspectRatio', outputSettings.aspectRatio);
                 formData.append('size', outputSettings.size);
