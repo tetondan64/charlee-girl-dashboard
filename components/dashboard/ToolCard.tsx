@@ -11,6 +11,7 @@ interface ToolCardProps {
     icon: string;
     href: string;
     enabled?: boolean;
+    isPopup?: boolean;
     onEdit?: () => void;
 }
 
@@ -20,6 +21,7 @@ export default function ToolCard({
     icon,
     href,
     enabled = true,
+    isPopup,
     onEdit
 }: ToolCardProps) {
     const CardContent = () => (
@@ -55,6 +57,30 @@ export default function ToolCard({
     if (!enabled) {
         return (
             <div className={`${styles.card} ${styles.disabled}`}>
+                <CardContent />
+            </div>
+        );
+    }
+
+    if (isPopup) {
+        return (
+            <div
+                className={styles.card}
+                onClick={() => {
+                    const width = 1200;
+                    const height = 800;
+                    const left = (window.screen.width - width) / 2;
+                    const top = (window.screen.height - height) / 2;
+                    window.open(
+                        href,
+                        'ProductDescription',
+                        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=no,toolbar=no,menubar=no,location=no`
+                    );
+                }}
+                role="button"
+                tabIndex={0}
+                style={{ cursor: 'pointer' }}
+            >
                 <CardContent />
             </div>
         );

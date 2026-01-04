@@ -98,6 +98,7 @@ export interface ToolCard {
     href: string;
     enabled: boolean;
     sortOrder: number;
+    isPopup?: boolean;
 }
 
 // API Response Types

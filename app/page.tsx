@@ -20,8 +20,9 @@ const defaultTools: ToolCard[] = [
     name: 'Product Page Description',
     description: 'Generate web-ready product descriptions',
     icon: '📝',
-    href: '/tools/product-page-description',
+    href: 'https://claude.ai/public/artifacts/97b551b3-c56f-4881-934e-ebbd4908df85',
     enabled: true,
+    isPopup: true,
     sortOrder: 1,
   },
   {
