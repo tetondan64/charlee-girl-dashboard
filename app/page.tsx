@@ -16,6 +16,15 @@ const defaultTools: ToolCard[] = [
     sortOrder: 0,
   },
   {
+    id: 'product-page-description',
+    name: 'Product Page Description',
+    description: 'Generate web-ready product descriptions',
+    icon: '📝',
+    href: '/tools/product-page-description',
+    enabled: true,
+    sortOrder: 1,
+  },
+  {
     id: 'ebay-listing',
     name: 'eBay Listing',
     description: 'Create eBay product listings',
