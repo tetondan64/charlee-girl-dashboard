@@ -14,8 +14,8 @@ export default function ProductPageDescription() {
                         src="https://claude.site/public/artifacts/7548a998-4e4f-4232-8530-fe6f99d8588f/embed"
                         title="Claude Artifact"
                         width="100%"
-                        height="800"
-                        style={{ border: 'none', borderRadius: '12px', background: 'white' }}
+                        height="600"
+                        frameBorder="0"
                         allow="clipboard-write"
                         allowFullScreen
                     ></iframe>
