@@ -29,6 +29,9 @@ export default function PatternUpload({
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [isSelectionMode, setIsSelectionMode] = useState(false);
 
+    const [selectedPatternId, setSelectedPatternId] = useState<string | null>(null);
+    const [isRenaming, setIsRenaming] = useState(false);
+
     // Fetch saved patterns
     const fetchPatterns = useCallback(async () => {
         setIsLoadingPatterns(true);
@@ -55,10 +58,14 @@ export default function PatternUpload({
         if (activeTab !== 'saved') {
             setIsSelectionMode(false);
             setSelectedIds(new Set());
+            setSelectedPatternId(null);
         }
     }, [activeTab]);
 
     const handleFile = useCallback(async (file: File) => {
+        // Reset selection when uploading new file
+        setSelectedPatternId(null);
+
         if (file.type.startsWith('image/')) {
             // Check for duplicate name
             const derivedName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
@@ -70,12 +77,15 @@ export default function PatternUpload({
                 if (confirm(`Pattern "${derivedName}" already exists in your saved patterns.\n\nClick OK to use the existing pattern.\nClick Cancel to upload as a new copy.`)) {
                     onUpload(existing.url);
                     onPatternNameChange(existing.name);
+                    setSelectedPatternId(existing.id);
                     return;
                 }
             }
 
             // 1. Set as current immediately for preview
             onUpload(file);
+            // Default name for new file
+            onPatternNameChange(derivedName);
 
             // 2. Upload to Blob for persistence
             setIsUploading(true);
@@ -102,6 +112,7 @@ export default function PatternUpload({
 
                 // Refresh list
                 fetchPatterns();
+                setSelectedPatternId(newPattern.id);
 
             } catch (err) {
                 console.error('Failed to save pattern persistence:', err);
@@ -123,6 +134,32 @@ export default function PatternUpload({
         } else {
             onUpload(pattern.url);
             onPatternNameChange(pattern.name);
+            setSelectedPatternId(pattern.id);
+        }
+    };
+
+    const handleRename = async () => {
+        if (!selectedPatternId || !patternName.trim()) return;
+
+        setIsRenaming(true);
+        try {
+            const res = await fetch('/api/patterns', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: selectedPatternId, name: patternName.trim() })
+            });
+
+            if (res.ok) {
+                // Optimistic update
+                setSavedPatterns(prev => prev.map(p =>
+                    p.id === selectedPatternId ? { ...p, name: patternName.trim() } : p
+                ));
+            }
+        } catch (error) {
+            console.error('Failed to rename:', error);
+            alert('Failed to rename pattern');
+        } finally {
+            setIsRenaming(false);
         }
     };
 
@@ -133,6 +170,9 @@ export default function PatternUpload({
         try {
             await fetch(`/api/patterns?id=${id}`, { method: 'DELETE' });
             fetchPatterns();
+            if (selectedPatternId === id) {
+                handleRemoveCurrent();
+            }
         } catch (err) {
             console.error('Failed to delete pattern:', err);
         }
@@ -152,6 +192,9 @@ export default function PatternUpload({
             setSelectedIds(new Set());
             setIsSelectionMode(false);
             fetchPatterns();
+            if (selectedPatternId && selectedIds.has(selectedPatternId)) {
+                handleRemoveCurrent();
+            }
         } catch (err) {
             console.error('Failed to delete patterns:', err);
             alert('Some patterns failed to delete');
@@ -167,6 +210,7 @@ export default function PatternUpload({
     const handleRemoveCurrent = useCallback(() => {
         onUpload(null as unknown as File); // Clear
         onPatternNameChange('');
+        setSelectedPatternId(null);
     }, [onUpload, onPatternNameChange]);
 
     // Helpers for preview
@@ -177,6 +221,10 @@ export default function PatternUpload({
     };
 
     const previewUrl = getPreviewUrl();
+
+    // Check if name is edited for the selected pattern
+    const selectedPattern = savedPatterns.find(p => p.id === selectedPatternId);
+    const isNameDifferent = selectedPattern && selectedPattern.name !== patternName;
 
     return (
         <div className={styles.container}>
@@ -292,7 +340,7 @@ export default function PatternUpload({
                                     key={pattern.id}
                                     className={`
                                         ${styles.swatchWrapper} 
-                                        ${!isSelectionMode && currentFile === pattern.url ? styles.selectedSwatch : ''}
+                                        ${!isSelectionMode && selectedPatternId === pattern.id ? styles.selectedSwatch : ''}
                                         ${isSelectionMode && selectedIds.has(pattern.id) ? styles.selectedForDeletion : ''}
                                         ${isSelectionMode ? styles.selectionMode : ''}
                                     `}
@@ -330,14 +378,26 @@ export default function PatternUpload({
                 <label htmlFor="patternName" className={styles.nameLabel}>
                     Pattern Name (used for file naming)
                 </label>
-                <input
-                    id="patternName"
-                    type="text"
-                    value={patternName}
-                    onChange={(e) => onPatternNameChange(e.target.value)}
-                    placeholder="e.g., Tropical Hibiscus"
-                    className={styles.input}
-                />
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    <input
+                        id="patternName"
+                        type="text"
+                        value={patternName}
+                        onChange={(e) => onPatternNameChange(e.target.value)}
+                        placeholder="e.g., Tropical Hibiscus"
+                        className={styles.input}
+                        style={{ flex: 1 }}
+                    />
+                    {isNameDifferent && (
+                        <button
+                            className={styles.renameButton}
+                            onClick={handleRename}
+                            disabled={isRenaming}
+                        >
+                            {isRenaming ? 'Saving...' : 'Save Name'}
+                        </button>
+                    )}
+                </div>
             </div>
         </div>
     );

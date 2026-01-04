@@ -72,6 +72,44 @@ export async function POST(request: Request) {
     }
 }
 
+// PATCH - Rename a pattern
+export async function PATCH(request: Request) {
+    try {
+        if (!redisClient) {
+            console.warn('[PATCH /api/patterns] Redis not configured');
+            return NextResponse.json({ error: 'Storage not available in local mode' }, { status: 503 });
+        }
+
+        const { id, name } = await request.json();
+
+        if (!id || !name) {
+            return NextResponse.json({ error: 'ID and Name are required' }, { status: 400 });
+        }
+
+        const currentPatterns = (await redisClient.get<PersistentPattern[]>(PATTERNS_KEY)) || [];
+
+        let found = false;
+        const updatedPatterns = currentPatterns.map(p => {
+            if (p.id === id) {
+                found = true;
+                return { ...p, name: name };
+            }
+            return p;
+        });
+
+        if (!found) {
+            return NextResponse.json({ error: 'Pattern not found' }, { status: 404 });
+        }
+
+        await redisClient.set(PATTERNS_KEY, updatedPatterns);
+
+        return NextResponse.json({ success: true, name });
+    } catch (error) {
+        console.error('Failed to rename pattern:', error);
+        return NextResponse.json({ error: 'Failed to rename pattern' }, { status: 500 });
+    }
+}
+
 // DELETE - Remove a pattern
 export async function DELETE(request: Request) {
     try {
