@@ -24,6 +24,19 @@ const sizes = [
 ];
 
 export default function OutputSettings({ settings, onChange }: OutputSettingsProps) {
+    const [showAdvanced, setShowAdvanced] = React.useState(false);
+
+    // Toggle consistency mode
+    const handleConsistencyToggle = (enabled: boolean) => {
+        onChange({
+            ...settings,
+            enableConsistency: enabled,
+            // When enabling, auto-set deterministic values if not already set
+            temperature: enabled ? 0.0 : (settings.temperature ?? 1.0),
+            seed: enabled ? 42 : (settings.seed ?? Math.floor(Math.random() * 2000000000))
+        });
+    };
+
     return (
         <div className={styles.container}>
             <div className={styles.row}>
@@ -65,6 +78,89 @@ export default function OutputSettings({ settings, onChange }: OutputSettingsPro
                             </option>
                         ))}
                     </select>
+                </div>
+            </div>
+
+            <div className={styles.advancedSection}>
+                <div
+                    className={styles.toggleHeader}
+                    onClick={() => setShowAdvanced(!showAdvanced)}
+                >
+                    <div className={styles.toggleLabel}>
+                        <span className={styles.toggleTitle}>Advanced Settings</span>
+                        <span className={styles.toggleDescription}>
+                            {settings.enableConsistency ? 'Consistency Mode is ON' : 'Customize generation parameters'}
+                        </span>
+                    </div>
+                    <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        style={{ transform: showAdvanced ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}
+                    >
+                        <path d="m6 9 6 6 6-6" />
+                    </svg>
+                </div>
+
+                <div className={`${styles.advancedControls} ${showAdvanced ? styles.active : ''}`}>
+                    {/* Consistency Toggle */}
+                    <div className={styles.settingGroup}>
+                        <div className={styles.switch}>
+                            <input
+                                type="checkbox"
+                                id="consistencyMode"
+                                checked={!!settings.enableConsistency}
+                                onChange={(e) => handleConsistencyToggle(e.target.checked)}
+                                className={styles.checkbox}
+                            />
+                            <label htmlFor="consistencyMode" style={{ marginLeft: '10px', fontSize: '0.9rem', fontWeight: 500, cursor: 'pointer' }}>
+                                Consistency Mode
+                            </label>
+                        </div>
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                            Forces strict settings (Temp 0, Fixed Seed) for reproducible results.
+                        </p>
+                    </div>
+
+                    {/* Temperature */}
+                    <div className={styles.settingGroup} style={{ opacity: settings.enableConsistency ? 0.7 : 1 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <label htmlFor="temperature" className={styles.label}>Temperature</label>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                                {settings.temperature ?? 1.0}
+                            </span>
+                        </div>
+                        <input
+                            type="range"
+                            id="temperature"
+                            min="0"
+                            max="1"
+                            step="0.1"
+                            value={settings.temperature ?? 1.0}
+                            disabled={!!settings.enableConsistency}
+                            onChange={(e) => onChange({ ...settings, temperature: parseFloat(e.target.value) })}
+                            className={styles.rangeInput}
+                        />
+                    </div>
+
+                    {/* Seed */}
+                    <div className={styles.settingGroup} style={{ opacity: settings.enableConsistency ? 0.7 : 1 }}>
+                        <label htmlFor="seed" className={styles.label}>Seed (Randomness)</label>
+                        <input
+                            type="number"
+                            id="seed"
+                            value={settings.seed ?? 42}
+                            disabled={!!settings.enableConsistency}
+                            onChange={(e) => onChange({ ...settings, seed: parseInt(e.target.value) || 0 })}
+                            className={styles.numberInput}
+                            placeholder="e.g. 42"
+                        />
+                    </div>
                 </div>
             </div>
 

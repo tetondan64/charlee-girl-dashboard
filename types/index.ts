@@ -49,6 +49,9 @@ export interface OutputSettings {
     width?: number;
     height?: number;
     format: 'png' | 'jpg' | 'webp';
+    temperature?: number;
+    seed?: number;
+    enableConsistency?: boolean;
 }
 
 // Generated Image

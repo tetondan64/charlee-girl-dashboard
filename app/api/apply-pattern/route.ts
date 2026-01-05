@@ -41,6 +41,15 @@ export async function POST(req: NextRequest) {
         const aspectRatio = formData.get('aspectRatio') as string || '1:1';
         const size = formData.get('size') as string || '2k';
 
+        // Extract advanced settings
+        const temperatureStr = formData.get('temperature') as string;
+        const seedStr = formData.get('seed') as string;
+
+        const temperature = temperatureStr ? parseFloat(temperatureStr) : undefined;
+        const seed = seedStr ? parseInt(seedStr, 10) : undefined;
+
+        console.log('Generation Settings:', { aspectRatio, size, temperature, seed });
+
         // Validate inputs
         if ((!templateImageFile && !templateImageUrl) || (!patternImageFile && !patternImageUrl)) {
             return NextResponse.json(
@@ -124,6 +133,39 @@ export async function POST(req: NextRequest) {
                           6. Do not add any text, watermarks, or branding`
         });
 
+        const imageConfig: any = {
+            aspectRatio: aspectRatio === '1:1' ? '1:1' : aspectRatio,
+            imageSize: size.toUpperCase(),
+        };
+
+        // Apply advanced settings if provided
+        if (temperature !== undefined) {
+            // For image generation models, 'temperature' might not always be directly supported in 'imageConfig'
+            // It usually sits at the top level generationConfig or is model specific.
+            // However, based on our research, we will try to pass it if allowed or ignore if SDK blocks it.
+            // For this implementation, we focus on seed for determinism.
+        }
+
+        const generationConfig: any = {
+            // @ts-ignore
+            responseModalities: ['TEXT', 'IMAGE'],
+            imageConfig: imageConfig,
+        };
+
+        // Add temperature if valid
+        if (temperature !== undefined) {
+            generationConfig.temperature = temperature;
+        }
+
+        // Add seed (integer) - This is the primary key for determinism
+        // NOTE: The SDK might require this top-level or specifically typed.
+        if (seed !== undefined) {
+            generationConfig.seed = seed;
+            // Ensure strictness if consistent seed is used
+            generationConfig.topP = 0.1;
+            generationConfig.topK = 1;
+        }
+
         // Structure the request with both images and instructions
         const result = await model.generateContent({
             contents: [{
@@ -159,14 +201,7 @@ export async function POST(req: NextRequest) {
                     }
                 ]
             }],
-            generationConfig: {
-                // @ts-ignore - The SDK types might not be up to date for image generation config
-                responseModalities: ['TEXT', 'IMAGE'],
-                imageConfig: {
-                    aspectRatio: aspectRatio === '1:1' ? '1:1' : aspectRatio,
-                    imageSize: size.toUpperCase(),
-                }
-            }
+            generationConfig: generationConfig
         });
 
         // Extract the generated image

@@ -111,6 +111,27 @@ export default function ProductOnWhitePage() {
         }
     }, [selectedSetId]);
 
+    // Persistence for Output Settings
+    // Load from localStorage on mount
+    useEffect(() => {
+        try {
+            const savedSettings = localStorage.getItem('productOnWhite_outputSettings');
+            if (savedSettings) {
+                const parsed = JSON.parse(savedSettings);
+                setOutputSettings(prev => ({ ...prev, ...parsed }));
+            }
+        } catch (e) {
+            console.error('Failed to load settings from localStorage', e);
+        }
+    }, []);
+
+    // Save to localStorage whenever outputSettings changes
+    useEffect(() => {
+        if (initialLoadDoneRef.current) {
+            localStorage.setItem('productOnWhite_outputSettings', JSON.stringify(outputSettings));
+        }
+    }, [outputSettings]);
+
     // Load on mount
     useEffect(() => {
         loadFromServer();
@@ -334,6 +355,15 @@ export default function ProductOnWhitePage() {
                 formData.append('prompt', fullPrompt);
                 formData.append('aspectRatio', outputSettings.aspectRatio);
                 formData.append('size', outputSettings.size);
+
+                // Pass advanced settings if they exist
+                if (outputSettings.temperature !== undefined) {
+                    formData.append('temperature', outputSettings.temperature.toString());
+                }
+                if (outputSettings.seed !== undefined) {
+                    formData.append('seed', outputSettings.seed.toString());
+                }
+
                 formData.append('sessionId', sessionId);
 
                 console.log(`[Generate] Processing template: ${template.name}`);
