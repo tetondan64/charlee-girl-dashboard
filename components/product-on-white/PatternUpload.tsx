@@ -86,41 +86,50 @@ export default function PatternUpload({
             onUpload(file);
             // Default name for new file
             onPatternNameChange(derivedName);
-
-            // 2. Upload to Blob for persistence
-            setIsUploading(true);
-            try {
-                const newBlob = await upload(file.name, file, {
-                    access: 'public',
-                    handleUploadUrl: '/api/upload',
-                });
-
-                // 3. Save to Redis
-                const newPattern: PersistentPattern = {
-                    id: `pat-${Date.now()}`,
-                    // If duplicate, append timestamp to name to avoid exact name collision in DB if strictly enforced (it's not, but good practice)
-                    name: existing ? `${derivedName} ${new Date().toLocaleTimeString()}` : derivedName,
-                    url: newBlob.url,
-                    productTypeId: productTypeId,
-                    createdAt: new Date().toISOString()
-                };
-
-                await fetch('/api/patterns', {
-                    method: 'POST',
-                    body: JSON.stringify(newPattern),
-                });
-
-                // Refresh list
-                fetchPatterns();
-                setSelectedPatternId(newPattern.id);
-
-            } catch (err) {
-                console.error('Failed to save pattern persistence:', err);
-            } finally {
-                setIsUploading(false);
-            }
         }
-    }, [onUpload, fetchPatterns, savedPatterns, onPatternNameChange, productTypeId]);
+    }, [onUpload, savedPatterns, onPatternNameChange]);
+
+    const handleSavePattern = async () => {
+        if (!currentFile || typeof currentFile === 'string') return;
+
+        setIsUploading(true);
+        try {
+            const file = currentFile;
+            // 2. Upload to Blob for persistence
+            const newBlob = await upload(file.name, file, {
+                access: 'public',
+                handleUploadUrl: '/api/upload',
+            });
+
+            // 3. Save to database
+            const newPattern: PersistentPattern = {
+                id: `pat-${Date.now()}`,
+                name: patternName.trim() || file.name,
+                url: newBlob.url,
+                productTypeId: productTypeId,
+                createdAt: new Date().toISOString()
+            };
+
+            const res = await fetch('/api/patterns', {
+                method: 'POST',
+                body: JSON.stringify(newPattern),
+            });
+
+            if (!res.ok) throw new Error('Failed to save pattern record');
+
+            // Refresh list
+            fetchPatterns();
+            // Switch current to the saved URL so it's now "saved"
+            onUpload(newBlob.url);
+            setSelectedPatternId(newPattern.id);
+
+        } catch (err) {
+            console.error('Failed to save pattern:', err);
+            alert('Failed to save pattern. Please try again.');
+        } finally {
+            setIsUploading(false);
+        }
+    };
 
     const handleSwatchSelect = (pattern: PersistentPattern) => {
         if (isSelectionMode) {
@@ -225,6 +234,7 @@ export default function PatternUpload({
     // Check if name is edited for the selected pattern
     const selectedPattern = savedPatterns.find(p => p.id === selectedPatternId);
     const isNameDifferent = selectedPattern && selectedPattern.name !== patternName;
+    const isUnsaved = currentFile instanceof File;
 
     return (
         <div className={styles.container}>
@@ -301,13 +311,24 @@ export default function PatternUpload({
                                 <p className={styles.fileName}>
                                     {typeof currentFile === 'string' ? 'Saved Pattern' : currentFile.name}
                                 </p>
-                                <button
-                                    type="button"
-                                    onClick={handleRemoveCurrent}
-                                    className={styles.removeButton}
-                                >
-                                    Remove
-                                </button>
+                                <div className={styles.previewActions}>
+                                    {isUnsaved && (
+                                        <button
+                                            onClick={handleSavePattern}
+                                            disabled={isUploading}
+                                            className={styles.saveButton}
+                                        >
+                                            {isUploading ? 'Saving...' : 'Save Swatch'}
+                                        </button>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={handleRemoveCurrent}
+                                        className={styles.removeButton}
+                                    >
+                                        Remove
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}
