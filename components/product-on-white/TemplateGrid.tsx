@@ -206,6 +206,28 @@ export default function TemplateGrid({
         }
     };
 
+    const handleDownloadTemplate = async () => {
+        if (!selectedTemplateData || !selectedTemplateData.templateImageUrl) return;
+
+        try {
+            const response = await fetch(selectedTemplateData.templateImageUrl);
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            // Extract extension or default to png
+            const ext = blob.type.split('/')[1] || 'png';
+            link.download = `${selectedTemplateData.name.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.${ext}`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Failed to download image:', error);
+            alert('Failed to download image');
+        }
+    };
+
     return (
         <div className={styles.container}>
             {/* Template Thumbnails */}
@@ -298,6 +320,14 @@ export default function TemplateGrid({
                                 >
                                     {isSwapping ? 'Uploading...' : 'Replace Image'}
                                 </label>
+                                <button
+                                    type="button"
+                                    onClick={handleDownloadTemplate}
+                                    className={styles.editButton}
+                                    title="Download original template image"
+                                >
+                                    Download Image
+                                </button>
                             </div>
                         </div>
                     </div>

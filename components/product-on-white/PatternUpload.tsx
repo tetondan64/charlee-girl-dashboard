@@ -2,6 +2,7 @@
 
 import React, { useCallback, useState, useEffect } from 'react';
 import styles from './PatternUpload.module.css';
+import Image from 'next/image';
 import { upload } from '@vercel/blob/client';
 import { PersistentPattern } from '@/types';
 
@@ -390,8 +391,13 @@ export default function PatternUpload({
                                     onClick={() => handleSwatchSelect(pattern)}
                                 >
                                     <div className={styles.swatchImage}>
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img src={pattern.url} alt={pattern.name} />
+                                        <Image
+                                            src={pattern.url}
+                                            alt={pattern.name}
+                                            width={200}
+                                            height={200}
+                                            unoptimized={false}
+                                        />
                                         {isSelectionMode && (
                                             <div className={styles.checkbox}>
                                                 {selectedIds.has(pattern.id) && (
