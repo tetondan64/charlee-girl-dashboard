@@ -60,10 +60,22 @@ export async function POST(request: Request) {
 
         if (redisClient) {
             const currentPatterns = (await redisClient.get<PersistentPattern[]>(PATTERNS_KEY)) || [];
+
+            // Check for duplicate name
+            if (currentPatterns.some(p => p.name.trim().toLowerCase() === newPattern.name.trim().toLowerCase() && p.productTypeId === newPattern.productTypeId)) {
+                return NextResponse.json({ error: 'A pattern with this name already exists in this set.' }, { status: 409 });
+            }
+
             const updatedPatterns = [...currentPatterns, newPattern];
             await redisClient.set(PATTERNS_KEY, updatedPatterns);
         } else {
             console.warn('[POST /api/patterns] Redis not configured, saving to memory');
+
+            // Check for duplicate name (Memory)
+            if (memoryPatterns.some(p => p.name.trim().toLowerCase() === newPattern.name.trim().toLowerCase() && p.productTypeId === newPattern.productTypeId)) {
+                return NextResponse.json({ error: 'A pattern with this name already exists in this set.' }, { status: 409 });
+            }
+
             memoryPatterns.push(newPattern);
         }
 

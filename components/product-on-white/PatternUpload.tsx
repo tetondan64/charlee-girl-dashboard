@@ -102,9 +102,26 @@ export default function PatternUpload({
             });
 
             // 3. Save to database
+            const finalName = patternName.trim() || file.name;
+            // Optimistic duplicate check (strictly scoped)
+            const exists = savedPatterns.some(p =>
+                p.name.toLowerCase() === finalName.toLowerCase() &&
+                p.productTypeId === productTypeId
+            );
+
+            if (exists) {
+                // If it exists, we should warn. But if we are here, the user might have overridden the initial upload warning.
+                // However, handleSavePattern is explicit. Let's block it or ask confirmation?
+                // The user complained about failing silently/generically. Blocking with clear message is better.
+                if (!confirm(`A pattern named "${finalName}" already exists. Do you really want to save another copy?`)) {
+                    setIsUploading(false);
+                    return;
+                }
+            }
+
             const newPattern: PersistentPattern = {
                 id: `pat-${Date.now()}`,
-                name: patternName.trim() || file.name,
+                name: finalName,
                 url: newBlob.url,
                 productTypeId: productTypeId,
                 createdAt: new Date().toISOString()
@@ -115,7 +132,10 @@ export default function PatternUpload({
                 body: JSON.stringify(newPattern),
             });
 
-            if (!res.ok) throw new Error('Failed to save pattern record');
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(errorData.error || 'Failed to save pattern record');
+            }
 
             // Refresh list
             fetchPatterns();
@@ -125,7 +145,9 @@ export default function PatternUpload({
 
         } catch (err) {
             console.error('Failed to save pattern:', err);
-            alert('Failed to save pattern. Please try again.');
+            // Show the actual error message if available
+            const errorMessage = err instanceof Error ? err.message : 'Failed to save pattern. Please try again.';
+            alert(errorMessage);
         } finally {
             setIsUploading(false);
         }
