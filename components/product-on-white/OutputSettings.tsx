@@ -122,8 +122,10 @@ export default function OutputSettings({ settings, onChange }: OutputSettingsPro
                                 Consistency Mode
                             </label>
                         </div>
-                        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                            Forces strict settings (Temp 0, Fixed Seed) for reproducible results.
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: '1.4' }}>
+                            When checked, this forces strict settings (Temp 0, Fixed Seed) for 100% reproducible results.
+                            <br />
+                            <strong>Uncheck to manually adjust Temperature and Seed.</strong>
                         </p>
                     </div>
 

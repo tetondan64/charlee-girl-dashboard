@@ -88,17 +88,13 @@
 
 .advancedControls {
     margin-top: 1rem;
-    display: grid;
+    display: none;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 1.5rem;
-    opacity: 0.5;
-    pointer-events: none;
-    transition: opacity 0.2s;
 }
 
 .advancedControls.active {
-    opacity: 1;
-    pointer-events: auto;
+    display: grid;
 }
 
 .rangeInput {
