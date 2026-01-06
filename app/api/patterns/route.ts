@@ -21,26 +21,29 @@ const PATTERNS_KEY = 'charlee-girl-patterns';
 
 
 
+// In-memory fallback for development without Redis
+let memoryPatterns: PersistentPattern[] = [];
+
 // GET - Fetch patterns, optionally filtered by productTypeId
 export async function GET(request: Request) {
     try {
-        if (!redisClient) {
-            console.warn('[GET /api/patterns] Redis not configured, returning empty list');
-            return NextResponse.json([]);
-        }
-
         const { searchParams } = new URL(request.url);
         const productTypeId = searchParams.get('productTypeId');
 
-        const patterns = await redisClient.get<PersistentPattern[]>(PATTERNS_KEY);
-        let result = patterns || [];
+        let patterns: PersistentPattern[] = [];
 
-        // Filter by productTypeId if provided
-        // If productTypeId is provided, show patterns that match OR have no productTypeId (global)
-        // Or if the user wants STRICT scoping, only show matches.
-        // Let's go with strict + global (if any) for now, or just strict as requested "tied to a specific product type"
+        if (redisClient) {
+            patterns = (await redisClient.get<PersistentPattern[]>(PATTERNS_KEY)) || [];
+        } else {
+            console.warn('[GET /api/patterns] Redis not configured, using memory store');
+            patterns = memoryPatterns;
+        }
+
+        let result = patterns;
+
         if (productTypeId) {
-            result = result.filter(p => !p.productTypeId || p.productTypeId === productTypeId);
+            // STRICT scoping: Only show patterns that belong to this specific set.
+            result = result.filter(p => p.productTypeId === productTypeId);
         }
 
         return NextResponse.json(result);
@@ -55,15 +58,14 @@ export async function POST(request: Request) {
     try {
         const newPattern: PersistentPattern = await request.json();
 
-        if (!redisClient) {
-            console.warn('[POST /api/patterns] Redis not configured, preventing save');
-            return NextResponse.json({ error: 'Storage not available in local mode' }, { status: 503 });
+        if (redisClient) {
+            const currentPatterns = (await redisClient.get<PersistentPattern[]>(PATTERNS_KEY)) || [];
+            const updatedPatterns = [...currentPatterns, newPattern];
+            await redisClient.set(PATTERNS_KEY, updatedPatterns);
+        } else {
+            console.warn('[POST /api/patterns] Redis not configured, saving to memory');
+            memoryPatterns.push(newPattern);
         }
-
-        const currentPatterns = (await redisClient.get<PersistentPattern[]>(PATTERNS_KEY)) || [];
-        const updatedPatterns = [...currentPatterns, newPattern];
-
-        await redisClient.set(PATTERNS_KEY, updatedPatterns);
 
         return NextResponse.json(newPattern, { status: 201 });
     } catch (error) {
@@ -75,33 +77,35 @@ export async function POST(request: Request) {
 // PATCH - Rename a pattern
 export async function PATCH(request: Request) {
     try {
-        if (!redisClient) {
-            console.warn('[PATCH /api/patterns] Redis not configured');
-            return NextResponse.json({ error: 'Storage not available in local mode' }, { status: 503 });
-        }
-
         const { id, name } = await request.json();
 
         if (!id || !name) {
             return NextResponse.json({ error: 'ID and Name are required' }, { status: 400 });
         }
 
-        const currentPatterns = (await redisClient.get<PersistentPattern[]>(PATTERNS_KEY)) || [];
+        if (redisClient) {
+            const currentPatterns = (await redisClient.get<PersistentPattern[]>(PATTERNS_KEY)) || [];
+            let found = false;
+            const updatedPatterns = currentPatterns.map(p => {
+                if (p.id === id) {
+                    found = true;
+                    return { ...p, name: name };
+                }
+                return p;
+            });
 
-        let found = false;
-        const updatedPatterns = currentPatterns.map(p => {
-            if (p.id === id) {
-                found = true;
-                return { ...p, name: name };
+            if (!found) {
+                return NextResponse.json({ error: 'Pattern not found' }, { status: 404 });
             }
-            return p;
-        });
 
-        if (!found) {
-            return NextResponse.json({ error: 'Pattern not found' }, { status: 404 });
+            await redisClient.set(PATTERNS_KEY, updatedPatterns);
+        } else {
+            const pattern = memoryPatterns.find(p => p.id === id);
+            if (!pattern) {
+                return NextResponse.json({ error: 'Pattern not found' }, { status: 404 });
+            }
+            pattern.name = name;
         }
-
-        await redisClient.set(PATTERNS_KEY, updatedPatterns);
 
         return NextResponse.json({ success: true, name });
     } catch (error) {
@@ -113,23 +117,20 @@ export async function PATCH(request: Request) {
 // DELETE - Remove a pattern
 export async function DELETE(request: Request) {
     try {
-        if (!redisClient) {
-            console.warn('[DELETE /api/patterns] Redis not configured');
-            return NextResponse.json({ error: 'Storage not available in local mode' }, { status: 503 });
-        }
-
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
 
         if (!id) {
-            return NextResponse.json({ error: 'Pattern ID require' }, { status: 400 });
+            return NextResponse.json({ error: 'Pattern ID required' }, { status: 400 });
         }
 
-        const currentPatterns = (await redisClient.get<PersistentPattern[]>(PATTERNS_KEY)) || [];
-        // Just filter by ID, no need to check productTypeId for deletion
-        const updatedPatterns = currentPatterns.filter(p => p.id !== id);
-
-        await redisClient.set(PATTERNS_KEY, updatedPatterns);
+        if (redisClient) {
+            const currentPatterns = (await redisClient.get<PersistentPattern[]>(PATTERNS_KEY)) || [];
+            const updatedPatterns = currentPatterns.filter(p => p.id !== id);
+            await redisClient.set(PATTERNS_KEY, updatedPatterns);
+        } else {
+            memoryPatterns = memoryPatterns.filter(p => p.id !== id);
+        }
 
         return NextResponse.json({ success: true });
     } catch (error) {
