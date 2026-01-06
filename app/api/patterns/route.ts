@@ -74,14 +74,26 @@ export async function POST(request: Request) {
     }
 }
 
-// PATCH - Rename a pattern
+// PATCH - Update a pattern (Rename or Update URL)
 export async function PATCH(request: Request) {
     try {
-        const { id, name } = await request.json();
+        const { id, name, url, productTypeId } = await request.json();
 
-        if (!id || !name) {
-            return NextResponse.json({ error: 'ID and Name are required' }, { status: 400 });
+        if (!id) {
+            return NextResponse.json({ error: 'Pattern ID is required' }, { status: 400 });
         }
+
+        const updatePattern = (p: PersistentPattern) => {
+            if (p.id === id) {
+                return {
+                    ...p,
+                    name: name !== undefined ? name : p.name,
+                    url: url !== undefined ? url : p.url,
+                    productTypeId: productTypeId !== undefined ? productTypeId : p.productTypeId
+                };
+            }
+            return p;
+        };
 
         if (redisClient) {
             const currentPatterns = (await redisClient.get<PersistentPattern[]>(PATTERNS_KEY)) || [];
@@ -89,7 +101,7 @@ export async function PATCH(request: Request) {
             const updatedPatterns = currentPatterns.map(p => {
                 if (p.id === id) {
                     found = true;
-                    return { ...p, name: name };
+                    return updatePattern(p);
                 }
                 return p;
             });
@@ -100,17 +112,17 @@ export async function PATCH(request: Request) {
 
             await redisClient.set(PATTERNS_KEY, updatedPatterns);
         } else {
-            const pattern = memoryPatterns.find(p => p.id === id);
-            if (!pattern) {
+            const index = memoryPatterns.findIndex(p => p.id === id);
+            if (index === -1) {
                 return NextResponse.json({ error: 'Pattern not found' }, { status: 404 });
             }
-            pattern.name = name;
+            memoryPatterns[index] = updatePattern(memoryPatterns[index]);
         }
 
-        return NextResponse.json({ success: true, name });
+        return NextResponse.json({ success: true, id });
     } catch (error) {
-        console.error('Failed to rename pattern:', error);
-        return NextResponse.json({ error: 'Failed to rename pattern' }, { status: 500 });
+        console.error('Failed to update pattern:', error);
+        return NextResponse.json({ error: 'Failed to update pattern' }, { status: 500 });
     }
 }
 
