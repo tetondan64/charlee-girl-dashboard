@@ -363,6 +363,10 @@ export default function ProductOnWhitePage() {
                 if (outputSettings.seed !== undefined) {
                     formData.append('seed', outputSettings.seed.toString());
                 }
+                // Append custom filename prefix if it exists
+                if (outputSettings.filenamePrefix) {
+                    formData.append('filenamePrefix', outputSettings.filenamePrefix);
+                }
 
                 formData.append('sessionId', sessionId);
 
@@ -647,6 +651,7 @@ export default function ProductOnWhitePage() {
                         images={generatedImages}
                         templates={templates}
                         patternName={patternName}
+                        filenamePrefix={outputSettings.filenamePrefix} // Pass explicit prefix
                         onRegenerate={handleRegenerate}
                         onBack={handleBack}
                     />

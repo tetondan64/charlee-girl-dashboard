@@ -163,6 +163,23 @@ export default function OutputSettings({ settings, onChange }: OutputSettingsPro
                             placeholder="e.g. 42"
                         />
                     </div>
+
+                    {/* File Name Prefix */}
+                    <div className={styles.settingGroup}>
+                        <label htmlFor="filenamePrefix" className={styles.label}>File Naming Prefix</label>
+                        <input
+                            type="text"
+                            id="filenamePrefix"
+                            value={settings.filenamePrefix || ''}
+                            onChange={(e) => onChange({ ...settings, filenamePrefix: e.target.value })}
+                            className={styles.numberInput} // Reusing the same style
+                            placeholder="Optional (e.g. Tenley)"
+                            style={{ width: '100%' }}
+                        />
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                            Leave empty to use the pattern name.
+                        </p>
+                    </div>
                 </div>
             </div>
 

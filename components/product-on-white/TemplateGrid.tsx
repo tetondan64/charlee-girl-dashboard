@@ -95,13 +95,33 @@ export default function TemplateGrid({
         setEditedBasePrompt('');
     };
 
-    const handleDeleteTemplate = (templateId: string, e: React.MouseEvent) => {
+    const handleDeleteTemplate = async (templateId: string, e: React.MouseEvent) => {
         e.stopPropagation(); // Prevent selecting the template
-        // Delete immediately without confirmation, and save to server immediately
+
+        // Find the template to get the URL
+        const templateToDelete = templates.find(t => t.id === templateId);
+
+        if (!confirm('Are you sure you want to delete this template?')) return;
+
+        // Optimistically update the UI
         const updatedTemplates = templates.filter(t => t.id !== templateId);
         onTemplatesChange(updatedTemplates, true); // saveNow=true for immediate persistence
         if (selectedTemplate === templateId) {
             setSelectedTemplate(updatedTemplates[0]?.id || null);
+        }
+
+        // Fire and forget the blob deletion to avoid UI lag
+        if (templateToDelete && templateToDelete.templateImageUrl) {
+            try {
+                // Call our new API route to delete the blob
+                await fetch(`/api/templates/blob?url=${encodeURIComponent(templateToDelete.templateImageUrl)}`, {
+                    method: 'DELETE'
+                });
+                console.log('Blob deleted successfully for template:', templateId);
+            } catch (err) {
+                console.error('Failed to delete blob for template:', templateId, err);
+                // We don't revert the UI change because the metadata removal is more important to the user
+            }
         }
     };
 
@@ -111,6 +131,79 @@ export default function TemplateGrid({
             t.id === templateId ? { ...t, isActive: !t.isActive, updatedAt: new Date() } : t
         );
         onTemplatesChange(updatedTemplates, true);
+    };
+
+    // --- Image Swapping Logic ---
+    const [isSwapping, setIsSwapping] = useState(false);
+
+    // Hidden file input ref for swapping
+    const swapInputRef = (input: HTMLInputElement | null) => {
+        if (input) {
+            input.onchange = async (e) => {
+                const file = (e.target as HTMLInputElement).files?.[0];
+                if (!file || !selectedTemplateData) return;
+
+                if (!confirm(`Replace image for "${selectedTemplateData.name}"?`)) {
+                    (e.target as HTMLInputElement).value = ''; // Reset
+                    return;
+                }
+
+                setIsSwapping(true);
+                try {
+                    // 1. Upload new image
+                    const blob = await upload(file.name, file, {
+                        access: 'public',
+                        handleUploadUrl: '/api/upload',
+                    });
+
+                    // 2. Delete old image (cleanup)
+                    if (selectedTemplateData.templateImageUrl) {
+                        await fetch(`/api/templates/blob?url=${encodeURIComponent(selectedTemplateData.templateImageUrl)}`, {
+                            method: 'DELETE'
+                        });
+                    }
+
+                    // 3. Update template with new URL
+                    const updatedTemplates = templates.map(t =>
+                        t.id === selectedTemplateData.id
+                            ? { ...t, templateImageUrl: blob.url, updatedAt: new Date() }
+                            : t
+                    );
+                    onTemplatesChange(updatedTemplates, true); // Save immediately
+
+                    alert('Image updated successfully!');
+
+                } catch (err) {
+                    console.error('Failed to swap image:', err);
+                    alert('Failed to update image.');
+                } finally {
+                    setIsSwapping(false);
+                    (e.target as HTMLInputElement).value = ''; // Reset input
+                }
+            };
+        }
+    }
+
+    // --- Drag and Drop Logic ---
+    const [isDragging, setIsDragging] = useState(false);
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file && file.type.startsWith('image/')) {
+            handleNewTemplateImageChange(file);
+        }
     };
 
     return (
@@ -185,10 +278,28 @@ export default function TemplateGrid({
             {selectedTemplateData && (
                 <div className={styles.details}>
                     <div className={styles.detailsHeader}>
-                        <h4 className={styles.detailsTitle}>
-                            {selectedTemplateData.name}
-                        </h4>
-                        {/* Swap button removed */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <h4 className={styles.detailsTitle}>
+                                {selectedTemplateData.name}
+                            </h4>
+                            <div className={styles.swapImageContainer}>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    id={`swap-image-${selectedTemplateData.id}`}
+                                    style={{ display: 'none' }}
+                                    ref={swapInputRef}
+                                    disabled={isSwapping}
+                                />
+                                <label
+                                    htmlFor={`swap-image-${selectedTemplateData.id}`}
+                                    className={styles.editButton}
+                                    style={{ cursor: isSwapping ? 'wait' : 'pointer', fontSize: '0.8rem' }}
+                                >
+                                    {isSwapping ? 'Uploading...' : 'Replace Image'}
+                                </label>
+                            </div>
+                        </div>
                     </div>
 
                     <div className={styles.promptSection}>
@@ -361,7 +472,13 @@ export default function TemplateGrid({
                             </div>
                             <div className={styles.formGroup}>
                                 <label className={styles.formLabel}>Upload Image</label>
-                                <div className={styles.uploadArea}>
+                                <div
+                                    className={`${styles.uploadArea} ${isDragging ? styles.dragOver : ''}`}
+                                    onDragOver={handleDragOver}
+                                    onDragLeave={handleDragLeave}
+                                    onDrop={handleDrop}
+                                    style={{ borderColor: isDragging ? 'var(--primary-color)' : '', backgroundColor: isDragging ? 'var(--cream-main)' : '' }}
+                                >
                                     <input
                                         type="file"
                                         accept="image/*"
@@ -387,7 +504,7 @@ export default function TemplateGrid({
                                                     <polyline points="17 8 12 3 7 8" />
                                                     <line x1="12" y1="3" x2="12" y2="15" />
                                                 </svg>
-                                                <span>Click to upload template image</span>
+                                                <span>Click or Drag to upload template image</span>
                                             </>
                                         )}
                                     </label>

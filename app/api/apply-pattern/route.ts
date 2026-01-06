@@ -239,15 +239,20 @@ export async function POST(req: NextRequest) {
         const imageBuffer = Buffer.from(resultImage.data, 'base64');
         const fileExtension = resultImage.mimeType?.includes('png') ? 'png' : 'jpg';
 
-        // Get and sanitize pattern name
+        // Get and sanitize pattern name or filename prefix
         const patternName = formData.get('patternName') as string || 'pattern';
-        const sanitizedPatternName = patternName
+        const filenamePrefix = formData.get('filenamePrefix') as string;
+
+        // Use prefix if available, otherwise use pattern name
+        const baseName = filenamePrefix && filenamePrefix.trim() ? filenamePrefix : patternName;
+
+        const sanitizedName = baseName
             .toLowerCase()
             .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric with dashes
             .replace(/^-+|-+$/g, ''); // Remove leading/trailing dashes
 
-        // Organized path: active-sessions/{sessionId}/generated/{patternName}-{timestamp}.{ext}
-        const fileName = `active-sessions/${sessionId}/generated/${sanitizedPatternName}-${Date.now()}.${fileExtension}`;
+        // Organized path: active-sessions/{sessionId}/generated/{sanitizedName}-{timestamp}.{ext}
+        const fileName = `active-sessions/${sessionId}/generated/${sanitizedName}-${Date.now()}.${fileExtension}`;
 
         const blob = await put(fileName, imageBuffer, {
             access: 'public',

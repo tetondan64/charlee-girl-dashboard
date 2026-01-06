@@ -9,6 +9,7 @@ interface GenerationResultsProps {
     images: GeneratedImage[];
     templates: ImageType[];
     patternName: string;
+    filenamePrefix?: string;
     onRegenerate: (imageId: string, refinementPrompt: string) => void;
     onBack: () => void;
 }
@@ -17,6 +18,7 @@ export default function GenerationResults({
     images,
     templates,
     patternName,
+    filenamePrefix,
     onRegenerate,
     onBack,
 }: GenerationResultsProps) {
@@ -45,8 +47,11 @@ export default function GenerationResults({
     };
 
     const formatFileName = (index: number) => {
-        const safeName = patternName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-        return `${safeName}-hat-${String(index + 1).padStart(2, '0')}.jpg`;
+        // Use filenamePrefix if provided and non-empty, otherwise fallback to patternName
+        const base = (filenamePrefix && filenamePrefix.trim()) ? filenamePrefix : patternName;
+        const safeName = base.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+        // Removed hardcoded "-hat-"
+        return `${safeName}-${String(index + 1).padStart(2, '0')}.jpg`;
     };
 
     const handleDownloadAll = async () => {

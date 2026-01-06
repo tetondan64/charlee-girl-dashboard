@@ -52,6 +52,7 @@ export interface OutputSettings {
     temperature?: number;
     seed?: number;
     enableConsistency?: boolean;
+    filenamePrefix?: string;  // Optional custom prefix for file naming
 }
 
 // Generated Image
