@@ -40,7 +40,7 @@ export default function OutputSettings({ settings, onChange }: OutputSettingsPro
     return (
         <div className={styles.container}>
             <div className={styles.row}>
-                <div className={styles.setting}>
+                <div className={styles.settingGroup}>
                     <label htmlFor="aspectRatio" className={styles.label}>
                         Aspect Ratio
                     </label>
@@ -60,7 +60,7 @@ export default function OutputSettings({ settings, onChange }: OutputSettingsPro
                     </select>
                 </div>
 
-                <div className={styles.setting}>
+                <div className={styles.settingGroup}>
                     <label htmlFor="size" className={styles.label}>
                         Image Size
                     </label>
@@ -108,75 +108,75 @@ export default function OutputSettings({ settings, onChange }: OutputSettingsPro
                 </div>
 
                 <div className={`${styles.advancedControls} ${showAdvanced ? styles.active : ''}`}>
-                    {/* Consistency Toggle */}
-                    <div className={styles.settingGroup}>
-                        <div className={styles.switch}>
+                    {/* Consistency Toggle - Redesigned as Switch */}
+                    <div className={styles.settingGroup} style={{ marginBottom: '1.5rem' }}>
+                        <label className={styles.switchLabel}>
+                            <div>
+                                <span className={styles.label} style={{ marginBottom: 0 }}>Consistency Mode</span>
+                                <p style={{ fontSize: '0.8rem', color: '#718096', fontWeight: 400 }}>
+                                    Forces strict settings for reproducible results
+                                </p>
+                            </div>
+                            <div className={styles.toggleSwitch}>
+                                <input
+                                    type="checkbox"
+                                    checked={!!settings.enableConsistency}
+                                    onChange={(e) => handleConsistencyToggle(e.target.checked)}
+                                />
+                                <span className={styles.slider}></span>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div className={styles.grid2}>
+                        {/* Temperature */}
+                        <div className={styles.settingGroup} style={{ opacity: settings.enableConsistency ? 0.5 : 1, transition: 'opacity 0.2s' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                                <label htmlFor="temperature" className={styles.label} style={{ margin: 0 }}>Temperature</label>
+                                <span style={{ fontSize: '0.8rem', color: '#718096', fontFamily: 'monospace' }}>
+                                    {settings.temperature?.toFixed(1) ?? '1.0'}
+                                </span>
+                            </div>
                             <input
-                                type="checkbox"
-                                id="consistencyMode"
-                                checked={!!settings.enableConsistency}
-                                onChange={(e) => handleConsistencyToggle(e.target.checked)}
-                                className={styles.checkbox}
+                                type="range"
+                                id="temperature"
+                                min="0"
+                                max="1"
+                                step="0.1"
+                                value={settings.temperature ?? 1.0}
+                                disabled={!!settings.enableConsistency}
+                                onChange={(e) => onChange({ ...settings, temperature: parseFloat(e.target.value) })}
+                                className={styles.rangeInput}
                             />
-                            <label htmlFor="consistencyMode" style={{ marginLeft: '10px', fontSize: '0.9rem', fontWeight: 500, cursor: 'pointer' }}>
-                                Consistency Mode
-                            </label>
                         </div>
-                        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: '1.4' }}>
-                            When checked, this forces strict settings (Temp 0, Fixed Seed) for 100% reproducible results.
-                            <br />
-                            <strong>Uncheck to manually adjust Temperature and Seed.</strong>
-                        </p>
-                    </div>
 
-                    {/* Temperature */}
-                    <div className={styles.settingGroup} style={{ opacity: settings.enableConsistency ? 0.7 : 1 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <label htmlFor="temperature" className={styles.label}>Temperature</label>
-                            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                                {settings.temperature ?? 1.0}
-                            </span>
+                        {/* Seed */}
+                        <div className={styles.settingGroup} style={{ opacity: settings.enableConsistency ? 0.5 : 1, transition: 'opacity 0.2s' }}>
+                            <label htmlFor="seed" className={styles.label}>Seed (Randomness)</label>
+                            <input
+                                type="number"
+                                id="seed"
+                                value={settings.seed ?? 42}
+                                disabled={!!settings.enableConsistency}
+                                onChange={(e) => onChange({ ...settings, seed: parseInt(e.target.value) || 0 })}
+                                className={styles.input}
+                                placeholder="e.g. 42"
+                            />
                         </div>
-                        <input
-                            type="range"
-                            id="temperature"
-                            min="0"
-                            max="1"
-                            step="0.1"
-                            value={settings.temperature ?? 1.0}
-                            disabled={!!settings.enableConsistency}
-                            onChange={(e) => onChange({ ...settings, temperature: parseFloat(e.target.value) })}
-                            className={styles.rangeInput}
-                        />
-                    </div>
-
-                    {/* Seed */}
-                    <div className={styles.settingGroup} style={{ opacity: settings.enableConsistency ? 0.7 : 1 }}>
-                        <label htmlFor="seed" className={styles.label}>Seed (Randomness)</label>
-                        <input
-                            type="number"
-                            id="seed"
-                            value={settings.seed ?? 42}
-                            disabled={!!settings.enableConsistency}
-                            onChange={(e) => onChange({ ...settings, seed: parseInt(e.target.value) || 0 })}
-                            className={styles.numberInput}
-                            placeholder="e.g. 42"
-                        />
                     </div>
 
                     {/* File Name Prefix */}
-                    <div className={styles.settingGroup}>
+                    <div className={styles.settingGroup} style={{ marginTop: '1.5rem' }}>
                         <label htmlFor="filenamePrefix" className={styles.label}>File Naming Prefix</label>
                         <input
                             type="text"
                             id="filenamePrefix"
                             value={settings.filenamePrefix || ''}
                             onChange={(e) => onChange({ ...settings, filenamePrefix: e.target.value })}
-                            className={styles.numberInput} // Reusing the same style
+                            className={styles.input}
                             placeholder="Optional (e.g. Tenley)"
-                            style={{ width: '100%' }}
                         />
-                        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                        <p style={{ fontSize: '0.75rem', color: '#a0aec0', marginTop: '4px' }}>
                             Leave empty to use the pattern name.
                         </p>
                     </div>
@@ -184,14 +184,13 @@ export default function OutputSettings({ settings, onChange }: OutputSettingsPro
             </div>
 
             <div className={styles.info}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                     <circle cx="12" cy="12" r="10" />
                     <path d="M12 16v-4" />
                     <path d="M12 8h.01" />
                 </svg>
                 <span>
-                    Larger sizes and higher quality will use more API credits.
-                    2K is recommended for e-commerce.
+                    <strong>Pro Tip:</strong> Larger sizes use more credits. 2K is recommended for e-commerce.
                 </span>
             </div>
         </div>
