@@ -161,9 +161,8 @@ export async function POST(req: NextRequest) {
         // NOTE: The SDK might require this top-level or specifically typed.
         if (seed !== undefined) {
             generationConfig.seed = seed;
-            // Ensure strictness if consistent seed is used
-            generationConfig.topP = 0.1;
-            generationConfig.topK = 1;
+            // We do NOT strictly force topP/topK here, allowing temperature to still have an effect
+            // if the user desires "reproducible chaos" (Fixed Seed + High Temp).
         }
 
         // Structure the request with both images and instructions
